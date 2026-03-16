@@ -18,6 +18,7 @@ class DeviceManager:
         device_id: str,
         device_token: str,
         firmware_version: str | None = None,
+        wifi_channel: int | None = None,
     ) -> DeviceRecord:
         async with self._lock:
             record = DeviceRecord(
@@ -25,6 +26,7 @@ class DeviceManager:
                 device_token=device_token,
                 firmware_version=firmware_version,
                 last_seen=datetime.now(timezone.utc),
+                wifi_channel=wifi_channel,
             )
             self._devices[device_id] = record
             self._queues.setdefault(device_id, deque())
@@ -43,6 +45,36 @@ class DeviceManager:
     async def list_devices(self) -> list[DeviceRecord]:
         async with self._lock:
             return sorted(self._devices.values(), key=lambda d: d.device_id)
+
+    async def arbitrate_master(self) -> None:
+        """
+        Dynamically assigns the Grandmaster role. 
+        1. If a master exists and has heartbeat in last 5s, keep it.
+        2. If the master is dead or there is no master, elect the first active device.
+        """
+        async with self._lock:
+            now = datetime.now(timezone.utc)
+            active_devices = [
+                d for d in self._devices.values()
+                if (now - d.last_seen).total_seconds() < 5
+            ]
+            
+            if not active_devices:
+                return
+                
+            live_master = next((d for d in active_devices if d.is_master), None)
+            
+            if live_master:
+                # Deflate false masters
+                for d in self._devices.values():
+                    if d.device_id != live_master.device_id:
+                        d.is_master = False
+            else:
+                # Elect the first active device as the new grandmaster
+                active_devices.sort(key=lambda d: d.device_id)
+                new_master = active_devices[0]
+                for d in self._devices.values():
+                    d.is_master = (d.device_id == new_master.device_id)
 
     async def enqueue_command(self, device_id: str, command: str) -> CommandMessage:
         async with self._lock:

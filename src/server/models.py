@@ -6,6 +6,7 @@ class DeviceRegistrationRequest(BaseModel):
     device_id: str = Field(min_length=3, max_length=64)
     device_token: str = Field(min_length=8, max_length=128)
     firmware_version: str | None = None
+    wifi_channel: int | None = None
 
 
 class DeviceRecord(BaseModel):
@@ -13,6 +14,8 @@ class DeviceRecord(BaseModel):
     device_token: str
     firmware_version: str | None = None
     last_seen: datetime
+    is_master: bool = False
+    wifi_channel: int | None = None
 
 
 class QueueCommandRequest(BaseModel):

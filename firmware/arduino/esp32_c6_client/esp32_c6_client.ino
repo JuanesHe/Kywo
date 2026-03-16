@@ -224,6 +224,23 @@ bool pollCommands() {
   return true;
 }
 
+void scanNetworks() {
+  Serial.println("[wifi] Scanning for networks...");
+  int n = WiFi.scanNetworks();
+  Serial.println("[wifi] Scan done");
+  if (n == 0) {
+    Serial.println("[wifi] No networks found");
+  } else {
+    Serial.printf("[wifi] %d networks found\n", n);
+    for (int i = 0; i < n; ++i) {
+      String encryption = (WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? " " : "*";
+      Serial.printf("[wifi] %2d: %s (%d)%s\n", i + 1, WiFi.SSID(i).c_str(), WiFi.RSSI(i), encryption.c_str());
+      delay(10);
+    }
+  }
+  Serial.println("");
+}
+
 void setup() {
   Serial.begin(115200);
   delay(500);
@@ -239,6 +256,10 @@ void setup() {
   }
 
   WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  delay(100);
+
+  scanNetworks();
 }
 
 void loop() {

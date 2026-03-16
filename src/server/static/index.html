@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Control Server</title>
+    <style>
+        :root {
+            --bg:        #0d1117;
+            --panel:     #161b22;
+            --border:    #30363d;
+            --text:      #c9d1d9;
+            --muted:     #8b949e;
+            --primary:   #58a6ff;
+            --success:   #2ea043;
+            --danger:    #da3633;
+            --arch1:     #e3b341; /* amber  — Arch I accent */
+            --arch2:     #3fb950; /* green  — Arch II accent */
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem 1rem;
+        }
+
+        /* ── Header ── */
+        .header {
+            width: 100%;
+            max-width: 820px;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        .header h1 { font-size: 1.6rem; font-weight: 600; color: var(--primary); }
+        .header p  { color: var(--muted); font-size: 0.9rem; margin-top: 0.35rem; }
+
+        /* ── Tabs ── */
+        .tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 2px solid var(--border);
+            width: 100%;
+            max-width: 820px;
+            margin-bottom: 0;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 0.85rem 1rem;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            color: var(--muted);
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: color 0.2s, border-color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        .tab-btn.active-arch1 { color: var(--arch1); border-bottom-color: var(--arch1); }
+        .tab-btn.active-arch2 { color: var(--arch2); border-bottom-color: var(--arch2); }
+        .tab-btn:hover { color: var(--text); }
+
+        .tab-badge {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0.15rem 0.45rem;
+            border-radius: 999px;
+            background: var(--border);
+        }
+        .active-arch1 .tab-badge { background: rgba(227,179,65,0.2); color: var(--arch1); }
+        .active-arch2 .tab-badge { background: rgba(63,185,80,0.2); color: var(--arch2); }
+
+        /* ── Panels ── */
+        .panel {
+            display: none;
+            width: 100%;
+            max-width: 820px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-top: none;
+            border-radius: 0 0 12px 12px;
+            padding: 2rem;
+        }
+        .panel.active { display: block; }
+
+        /* ── Section headers ── */
+        .section-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--muted);
+            margin-bottom: 1rem;
+        }
+        .section-title.arch1 { color: var(--arch1); }
+        .section-title.arch2 { color: var(--arch2); }
+
+        .divider { border: none; border-top: 1px solid var(--border); margin: 1.75rem 0; }
+
+        /* ── Big relay buttons ── */
+        .button-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+        }
+
+        .relay-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 1.5rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .relay-btn sub { font-size: 0.75rem; font-weight: 400; opacity: 0.75; }
+        .relay-btn.btn-on  { border-color: var(--success); color: var(--success); background: rgba(46,160,67,0.08); }
+        .relay-btn.btn-off { border-color: var(--danger);  color: var(--danger);  background: rgba(218,54,51,0.08); }
+        .relay-btn.btn-on:hover  { background: var(--success); color: white; }
+        .relay-btn.btn-off:hover { background: var(--danger);  color: white; }
+        .relay-btn:active { transform: scale(0.97); }
+
+        /* ── Generic button ── */
+        button {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.6rem 1.2rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.15s;
+        }
+        button:hover { background: var(--border); }
+
+        .btn-primary {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+            font-weight: 600;
+        }
+        .btn-primary:hover { background: #3182ce; border-color: #3182ce; color: white; }
+
+        .btn-arch2 {
+            background: var(--arch2);
+            border-color: var(--arch2);
+            color: #0d1117;
+            font-weight: 700;
+        }
+        .btn-arch2:hover { background: #2ea043; }
+
+        /* ── Inputs ── */
+        input[type="text"], input[type="number"], input[type="range"] {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 6px;
+            padding: 0.6rem 0.8rem;
+            font-size: 0.9rem;
+        }
+        input[type="text"]:focus, input[type="number"]:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(88,166,255,0.2);
+        }
+        input[type="range"] {
+            padding: 0;
+            width: 100%;
+            accent-color: var(--arch2);
+        }
+
+        /* ── Custom command row ── */
+        .row { display: flex; gap: 0.75rem; align-items: center; }
+        .row input[type="text"] { flex: 1; }
+
+        /* ── Param sliders ── */
+        .param-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+        .param-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+        }
+        .param-label {
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-bottom: 0.5rem;
+        }
+        .param-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--arch2);
+            font-variant-numeric: tabular-nums;
+        }
+        .param-value span { font-size: 0.9rem; color: var(--muted); font-weight: 400; }
+
+        /* ── Arch II status bar ── */
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.6rem 0.9rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.82rem;
+            color: var(--muted);
+            margin-top: 1rem;
+        }
+        .status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--muted);
+            flex-shrink: 0;
+        }
+        .status-dot.synced { background: var(--arch2); box-shadow: 0 0 6px var(--arch2); }
+
+        /* ── Log / ping results ── */
+        #log, #pingResults {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.82rem;
+        }
+        #log {
+            background: #010409;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.85rem 1rem;
+            height: 140px;
+            overflow-y: auto;
+            color: var(--muted);
+        }
+        .log-entry { margin-bottom: 0.2rem; line-height: 1.45; }
+        .log-success { color: var(--success); }
+        .log-error   { color: var(--danger); }
+        .log-info    { color: var(--primary); }
+
+        #pingResults { margin-top: 0.75rem; }
+
+        .ping-card {
+            padding: 0.75rem 1rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+        }
+        .ping-card strong { color: var(--primary); }
+
+        /* ── Latency test controls ── */
+        .ping-controls { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
+        .ping-controls label { font-size: 0.85rem; color: var(--muted); display: flex; align-items: center; gap: 0.4rem; }
+        .ping-controls input[type="number"] { width: 80px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>⚡ ESP32 Control Server</h1>
+        <p>Switch between architectures below — both run simultaneously on the server.</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab-btn active-arch1" id="tab-arch1" onclick="switchTab('arch1')">
+            <span>📡 Architecture I</span>
+            <span class="tab-badge">Real-Time UDP</span>
+        </button>
+        <button class="tab-btn" id="tab-arch2" onclick="switchTab('arch2')">
+            <span>🔄 Architecture II</span>
+            <span class="tab-badge">Distributed Control</span>
+        </button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         PANEL I — Architecture I: Real-Time UDP Streaming
+         ═══════════════════════════════════════════════ -->
+    <div class="panel active" id="panel-arch1">
+
+        <p class="section-title arch1">Arch I — Direct UDP Command Streaming (Port 4210)</p>
+
+        <div class="button-grid">
+            <button class="relay-btn btn-on" onclick="broadcastCommand('relay:on')">
+                ⚡ TURN ON
+                <sub>Multicast relay:on</sub>
+            </button>
+            <button class="relay-btn btn-off" onclick="broadcastCommand('relay:off')">
+                🛑 TURN OFF
+                <sub>Multicast relay:off</sub>
+            </button>
+        </div>
+
+        <hr class="divider">
+
+        <p class="section-title">Custom Command</p>
+        <div class="row">
+            <input type="text" id="customInput" placeholder="Enter command (e.g. config:reset)"
+                   onkeypress="if(event.key==='Enter') sendCustom()">
+            <button class="btn-primary" onclick="sendCustom()">Broadcast</button>
+        </div>
+
+        <hr class="divider">
+
+        <p class="section-title">⏱ Latency Ping Test</p>
+        <div class="ping-controls">
+            <label>Pings: <input type="number" id="pingCount" value="100" min="10" max="1000"></label>
+            <label>Interval (ms): <input type="number" id="pingInterval" value="50" min="10" max="500"></label>
+            <button class="btn-primary" id="btnPingTest" onclick="runPingTest()">Run Ping Test</button>
+        </div>
+        <div id="pingResults"></div>
+
+        <hr class="divider">
+
+        <p class="section-title">Event Log</p>
+        <div id="log">
+            <div class="log-entry log-info">[System] Architecture I server online. Port 4210 active.</div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         PANEL II — Architecture II: Distributed Edge Control
+         ═══════════════════════════════════════════════ -->
+    <div class="panel" id="panel-arch2">
+        <p class="section-title arch2">Arch II — Sync-Locked Edge State Machine (TCP/UDP)</p>
+
+        <p style="font-size:0.85rem; color:var(--muted); margin-bottom:1.5rem; line-height:1.6;">
+            Edge devices run their control sequence <strong style="color:var(--text)">locally on a high-priority hardware task</strong>.
+            Configurations are sent via TCP, but execution is bound to a <strong>global UDP Master Clock</strong>. 
+            Multiple devices running the same sequence will switch pins at the exact same microsecond, perfectly perfectly aligned in phase.
+        </p>
+
+        <div class="status-bar" style="margin-bottom: 1.5rem;">
+            <div class="status-dot" id="syncDot"></div>
+            <span id="syncStatus">Master Clock: broadcasting sync pulses...</span>
+        </div>
+
+        <div style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+            <label style="font-size: 0.85rem; color: var(--muted);">Target Device:</label>
+            <select id="deviceSelector" style="background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 0.5rem; border-radius: 6px; width: 100%; max-width: 300px;">
+                <option value="">Refresh to load devices...</option>
+            </select>
+            <button onclick="loadDevices()" class="btn-secondary" style="margin-left: 0.5rem;">↻ Refresh</button>
+            <button onclick="setAsMaster()" class="btn-arch2" style="background: #eab308; color: #000; font-weight: bold;">👑 Set as Grandmaster</button>
+        </div>
+
+        <div class="state-builder" style="background: #010409; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h3 style="font-size: 0.95rem; font-weight: 600;">State Sequence</h3>
+                <button onclick="addStateRow()" class="btn-primary" style="padding: 0.3rem 0.8rem; font-size: 0.8rem;">+ Add State</button>
+            </div>
+            
+            <table style="width: 100%; border-collapse: collapse; text-align: left;" id="smTable">
+                <thead>
+                    <tr style="border-bottom: 1px solid var(--border); color: var(--muted); font-size: 0.8rem;">
+                        <th style="padding-bottom: 0.5rem; width: 40px;">#</th>
+                        <th style="padding-bottom: 0.5rem;">Output 1</th>
+                        <th style="padding-bottom: 0.5rem;">Output 2</th>
+                        <th style="padding-bottom: 0.5rem;">Duration (ms)</th>
+                        <th style="padding-bottom: 0.5rem; text-align: right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="smTbody">
+                    <!-- Rows generated by JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <div style="display:flex; gap:1rem; align-items:center;">
+            <button class="btn-arch2" onclick="pushStateMachine()">🚀 Deploy to Edge Device</button>
+            <span id="pushStatus" style="font-size:0.82rem; color:var(--muted);"></span>
+        </div>
+
+        <hr class="divider">
+
+        <p class="section-title">Event Log</p>
+        <div id="log2">
+            <div class="log-entry log-info">[System] Architecture II server online. TCP config endpoint active.</div>
+        </div>
+        <style>
+            #log2 {
+                background: #010409;
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                padding: 0.85rem 1rem;
+                height: 140px;
+                overflow-y: auto;
+                color: var(--muted);
+                font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+                font-size: 0.82rem;
+            }
+            .sm-row td { padding: 0.75rem 0; border-bottom: 1px solid var(--border); }
+            .sm-row select, .sm-row input {
+                background: var(--bg); border: 1px solid var(--border); color: var(--text);
+                padding: 0.4rem; border-radius: 4px;
+            }
+            .sm-row input[type="number"] { width: 100px; }
+            .btn-remove { background: transparent; border: 1px solid var(--danger); color: var(--danger); padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.75rem; cursor: pointer; }
+            .btn-remove:hover { background: rgba(218,54,51,0.1); }
+        </style>
+    </div>
+
+    <script>
+        const API_KEY = 'change-me';
+
+        // ── Tab switching ──────────────────────────────────────────────
+        function switchTab(arch) {
+            const t1 = document.getElementById('tab-arch1');
+            const t2 = document.getElementById('tab-arch2');
+            const p1 = document.getElementById('panel-arch1');
+            const p2 = document.getElementById('panel-arch2');
+
+            if (arch === 'arch1') {
+                t1.className = 'tab-btn active-arch1';
+                t2.className = 'tab-btn';
+                p1.classList.add('active');
+                p2.classList.remove('active');
+            } else {
+                t1.className = 'tab-btn';
+                t2.className = 'tab-btn active-arch2';
+                p1.classList.remove('active');
+                p2.classList.add('active');
+            }
+        }
+
+        // ── Logging ───────────────────────────────────────────────────
+        function log(msg, type = 'normal', panel = 'log') {
+            const el = document.getElementById(panel);
+            const div = document.createElement('div');
+            div.className = 'log-entry' + (type !== 'normal' ? ` log-${type}` : '');
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            el.prepend(div);
+        }
+
+        // ── Architecture I ────────────────────────────────────────────
+        async function broadcastCommand(command) {
+            log(`Sending: ${command}…`);
+            try {
+                const res = await fetch('/broadcast', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+                    body: JSON.stringify({ command })
+                });
+                if (res.ok) {
+                    log(`✓ Broadcasted: ${command}`, 'success');
+                } else {
+                    log(`✗ Error ${res.status}: ${await res.text()}`, 'error');
+                }
+            } catch (e) {
+                log(`✗ Network error: ${e.message}`, 'error');
+            }
+        }
+
+        function sendCustom() {
+            const inp = document.getElementById('customInput');
+            const cmd = inp.value.trim();
+            if (cmd) { broadcastCommand(cmd); inp.value = ''; }
+        }
+
+        async function runPingTest() {
+            const count    = document.getElementById('pingCount').value;
+            const interval = document.getElementById('pingInterval').value;
+            const btn      = document.getElementById('btnPingTest');
+            const results  = document.getElementById('pingResults');
+
+            btn.disabled = true;
+            btn.textContent = 'Running…';
+            results.innerHTML = `<div class="ping-card" style="color:var(--primary)">⏳ Sending ${count} pings…</div>`;
+            log(`Ping test started: ${count} pings @ ${interval}ms interval`, 'info');
+
+            try {
+                const res = await fetch(`/ping-test?count=${count}&interval_ms=${interval}`, {
+                    method: 'POST',
+                    headers: { 'x-api-key': API_KEY }
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.devices && Object.keys(data.devices).length > 0) {
+                        results.innerHTML = '';
+                        for (const [ip, s] of Object.entries(data.devices)) {
+                            results.innerHTML += `
+                                <div class="ping-card">
+                                    <strong>${ip}</strong> &nbsp;(${s.count}/${count} replies)<br>
+                                    Min: <span style="color:var(--success)">${s.min_ms.toFixed(2)} ms</span> &nbsp;|&nbsp;
+                                    Avg: ${s.avg_ms.toFixed(2)} ms &nbsp;|&nbsp;
+                                    P95: ${s.p95_ms.toFixed(2)} ms &nbsp;|&nbsp;
+                                    Max: <span style="color:var(--danger)">${s.max_ms.toFixed(2)} ms</span> &nbsp;|&nbsp;
+                                    Jitter: ${s.jitter_ms.toFixed(2)} ms
+                                </div>`;
+                        }
+                        log('Ping test complete!', 'success');
+                    } else {
+                        results.innerHTML = `<div class="ping-card" style="color:var(--danger)">No responses — are ESP32s connected?</div>`;
+                        log('No ping responses received', 'error');
+                    }
+                } else {
+                    results.innerHTML = `<div class="ping-card" style="color:var(--danger)">Error: ${await res.text()}</div>`;
+                    log(`Ping test failed: HTTP ${res.status}`, 'error');
+                }
+            } catch (e) {
+                results.innerHTML = `<div class="ping-card" style="color:var(--danger)">Network error: ${e.message}</div>`;
+                log(`Network error: ${e.message}`, 'error');
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Run Ping Test';
+        }
+
+        // ── Architecture II: State Machine ────────────────────────────
+        
+        async function loadDevices() {
+            const selector = document.getElementById('deviceSelector');
+            selector.innerHTML = '<option value="">Loading...</option>';
+            try {
+                const res = await fetch('/devices', { headers: { 'x-api-key': API_KEY } });
+                if (res.ok) {
+                    const devices = await res.json();
+                    selector.innerHTML = '<option value="">-- Select Target Device --</option>';
+                    devices.forEach(d => {
+                        const opt = document.createElement('option');
+                        opt.value = d.device_id;
+                        opt.textContent = `${d.device_id} ${d.is_master ? '👑 (MASTER)' : '(Follower)'}`;
+                        selector.appendChild(opt);
+                    });
+                }
+            } catch (e) {
+                selector.innerHTML = '<option value="">Error loading devices</option>';
+            }
+        }
+
+        async function setAsMaster() {
+            const deviceId = document.getElementById('deviceSelector').value;
+            if (!deviceId) {
+                alert("Please select a device to become the ESP-NOW Grandmaster.");
+                return;
+            }
+            try {
+                const res = await fetch(`/arch2/devices/${deviceId}/set_master`, {
+                    method: 'POST',
+                    headers: { 'x-api-key': API_KEY }
+                });
+                if (res.ok) {
+                    log(`✓ ${deviceId} is now the Grandmaster Clock`, 'success', 'log2');
+                    loadDevices();
+                } else {
+                    log(`✗ Error assigning master: ${await res.text()}`, 'error', 'log2');
+                }
+            } catch (e) {
+                log(`✗ Network error: ${e.message}`, 'error', 'log2');
+            }
+        }
+
+        function createRowHTML(index, p1 = true, p2 = false, dur = 1000) {
+            const tr = document.createElement('tr');
+            tr.className = 'sm-row';
+            tr.innerHTML = `
+                <td style="color:var(--muted)">${index}</td>
+                <td>
+                    <select class="p1">
+                        <option value="true" ${p1 ? 'selected' : ''}>HIGH</option>
+                        <option value="false" ${!p1 ? 'selected' : ''}>LOW</option>
+                    </select>
+                </td>
+                <td>
+                    <select class="p2">
+                        <option value="true" ${p2 ? 'selected' : ''}>HIGH</option>
+                        <option value="false" ${!p2 ? 'selected' : ''}>LOW</option>
+                    </select>
+                </td>
+                <td>
+                    <input type="number" class="dur" value="${dur}" min="10" step="10">
+                </td>
+                <td style="text-align: right;">
+                    <button class="btn-remove" onclick="this.closest('tr').remove(); renumberRows();">Remove</button>
+                </td>
+            `;
+            return tr;
+        }
+
+        function addStateRow() {
+            const tbody = document.getElementById('smTbody');
+            tbody.appendChild(createRowHTML(tbody.children.length + 1, false, false, 500));
+            renumberRows();
+        }
+
+        function renumberRows() {
+            const rows = document.getElementById('smTbody').children;
+            for (let i = 0; i < rows.length; i++) {
+                rows[i].children[0].textContent = i + 1;
+            }
+        }
+
+        async function pushStateMachine() {
+            const deviceId = document.getElementById('deviceSelector').value;
+            const statusEl = document.getElementById('pushStatus');
+            
+            if (!deviceId) {
+                alert("Please select a target device first. Refresh devices if empty and make sure the ESP32 is powered on.");
+                return;
+            }
+
+            const rows = document.getElementById('smTbody').children;
+            const sequence = [];
+            
+            for (let tr of rows) {
+                sequence.push({
+                    pin1: tr.querySelector('.p1').value === 'true',
+                    pin2: tr.querySelector('.p2').value === 'true',
+                    duration_ms: parseInt(tr.querySelector('.dur').value, 10) || 1000
+                });
+            }
+
+            if (sequence.length === 0) {
+                alert("Please add at least one state.");
+                return;
+            }
+
+            statusEl.textContent = 'Deploying...';
+            log(`Deploying ${sequence.length}-state sequence to ${deviceId}`, 'info', 'log2');
+
+            try {
+                const res = await fetch(`/arch2/devices/${deviceId}/config`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+                    body: JSON.stringify({ sequence })
+                });
+                if (res.ok) {
+                    statusEl.textContent = `✓ Config deployed. Device will pull momentarily.`;
+                    statusEl.style.color = 'var(--arch2)';
+                    log(`✓ Successfully updated server config registry for ${deviceId}`, 'success', 'log2');
+                } else {
+                    statusEl.textContent = `✗ Error ${res.status}`;
+                    statusEl.style.color = 'var(--danger)';
+                    log(`✗ Failed: ${await res.text()}`, 'error', 'log2');
+                }
+            } catch (e) {
+                statusEl.textContent = '✗ Network error';
+                statusEl.style.color = 'var(--danger)';
+                log(`✗ Network error: ${e.message}`, 'error', 'log2');
+            }
+        }
+
+        // Initialize with default states
+        window.addEventListener('DOMContentLoaded', () => {
+            const tbody = document.getElementById('smTbody');
+            tbody.appendChild(createRowHTML(1, true, false, 1000));
+            tbody.appendChild(createRowHTML(2, false, true, 1000));
+            loadDevices();
+        });
+
+        // Simulate clock sync heartbeat status (Server broadcasts every 1s on port 4211)
+        let syncCount = 0;
+        setInterval(() => {
+            syncCount++;
+            const dot = document.getElementById('syncDot');
+            const txt = document.getElementById('syncStatus');
+            dot.classList.remove('synced');
+            void dot.offsetWidth; // trigger reflow
+            dot.classList.add('synced');
+            txt.innerHTML = `Master Clock Sync (UDP Port 4211) — Pulse <strong>#${syncCount}</strong> sent at ${new Date().toLocaleTimeString()}`;
+        }, 1000);
+    </script>
+</body>
+</html>
