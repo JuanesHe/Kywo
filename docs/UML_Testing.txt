@@ -1,0 +1,90 @@
+sequenceDiagram
+    participant PC as Mac (Python Test Script)
+    participant N as Wi-Fi Router
+    participant E1 as Edge Node 1 (Arch 1 Firmware)
+
+    Note over PC, E1: Test 0: Software Ping-Pong (Round Trip Time)
+    
+    loop Ping-Pong Collection Loop
+        PC->>PC: Record Start Time (t_start)
+        PC->>N: UDP Broadcast ("relay:on")
+        
+        Note over N: Wi-Fi Latency (Trip 1)
+        
+        N-->>E1: UDP Payload Arrives
+        E1->>E1: Process Socket buffer
+        
+        E1->>N: UDP Unicast ("ack:on")
+        
+        Note over N: Wi-Fi Latency (Trip 2)
+        
+        N-->>PC: UDP Payload Arrives
+        PC->>PC: Record End Time (t_end)
+        
+        Note over PC: Round Trip Latency = (t_end - t_start)
+    end
+
+
+sequenceDiagram
+    participant PC as Mac (Python Arch1 sync test)
+    participant Obs as Observer ESP32 (Hardware Timer)
+    participant N as Wi-Fi Router
+    participant E1 as Edge Node 1 (Arch 1)
+    participant E2 as Edge Node 2 (Arch 1)
+
+    Note over PC, E2: Test 1: Arch 1 Hardware Observer (Ground Truth Latency & Sync)
+    
+    loop Hardware Test Loop
+        PC->>Obs: Serial write("H")
+        Obs->>Obs: Start Microsecond Stopwatch (T_0)
+        
+        PC->>N: UDP Broadcast ("relay:on")
+        
+        Note over N: Wi-Fi Contention Delay Space
+        
+        par Physical Execution
+            N-->>E1: Packet 1 Arrives
+            E1->>Obs: digitalWrite(PIN_A, HIGH)
+            Obs->>Obs: Hardware Interrupt A (T_A)
+        and
+            N-->>E2: Packet 2 Arrives
+            E2->>Obs: digitalWrite(PIN_B, HIGH)
+            Obs->>Obs: Hardware Interrupt B (T_B)
+        end
+        
+        Note over Obs: Calculate Absolute Latencies (T_A - T_0) and (T_B - T_0)
+        Obs-->>PC: Serial.print("DATA: lat_a, lat_b")
+        Note over PC: Calculate Jitter J = |lat_a - lat_b|
+    end
+
+
+sequenceDiagram
+    participant PC as Mac (Python Arch2 sync test)
+    participant Obs as Observer ESP32 (Hardware Timer)
+    participant E1 as Edge Node 1 (Arch 2 Grandmaster)
+    participant E2 as Edge Node 2 (Arch 2 Follower)
+
+    Note over PC, E2: Test 2: Arch 2 Hardware Observer (Determinism & Sync Drift)
+    
+    Note over E1, E2: Node 1 & 2 are independently looping their State Machines
+    
+    loop Indefinite Hardware Observation
+        
+        par Automatic Background Execution
+            E1->>Obs: digitalWrite(PIN_A, HIGH) at T_target
+            Obs->>Obs: Hardware Interrupt A (T_A)
+        and
+            E2->>Obs: digitalWrite(PIN_B, HIGH) at (T_target + Offset)
+            Obs->>Obs: Hardware Interrupt B (T_B)
+        endß
+        
+        Note over Obs: Calculate Drift: Δt = (T_A - T_B)
+        
+        alt IF |Δt| < 500ms (Valid Pair)
+            Obs-->>PC: Serial.print("DATA: T_A, T_B, Δt")
+        else IF Skew too large
+            Obs->>Obs: Discard outlier (Missed beat)
+        end
+        
+        Note over PC: Append Δt to CSV & Update Live Metrics
+    end
