@@ -1,0 +1,38 @@
+% Table 1: Synchronization Drift Statistics
+\begin{table}[htpb]
+\centering
+\caption{Synchronization Drift Comparison (µs)}
+\begin{tabular}{|l|c|c|c|c|c|}
+\hline
+\textbf{Architecture} & \textbf{Mean} & \textbf{Median} & \textbf{Std Dev} & \textbf{Min} & \textbf{Max} \\ \hline
+Arch 1 (UDP) & 7.88 & 5.00 & 10.34 & 1 & 99 \\ \hline
+Arch 2 (ESP-NOW) & 108.47 & 31.00 & 495.96 & 1 & 6449 \\ \hline
+\end{tabular}
+\label{tab:sync_drift}
+\end{table}
+
+% Table 2: Hardware Latency Statistics
+\begin{table}[htpb]
+\centering
+\caption{Hardware Latency Statistics for Architecture 1 (ms)}
+\begin{tabular}{|l|c|c|c|c|c|}
+\hline
+\textbf{Device} & \textbf{Mean} & \textbf{Median} & \textbf{Std Dev} & \textbf{Min} & \textbf{Max} \\ \hline
+Device A & 49.42 & 25.16 & 48.68 & 2.05 & 210.51 \\ \hline
+Device B & 49.42 & 25.16 & 48.69 & 2.06 & 210.50 \\ \hline
+\end{tabular}
+\label{tab:hw_latency}
+\end{table}
+
+% Table 3: Ping Latency Statistics
+\begin{table}[htpb]
+\centering
+\caption{Software Ping Latency Statistics (ms)}
+\begin{tabular}{|l|c|c|c|c|c|}
+\hline
+\textbf{Device} & \textbf{Mean} & \textbf{Median} & \textbf{Std Dev} & \textbf{Min} & \textbf{Max} \\ \hline
+Device A & 58.25 & 41.92 & 56.58 & 4.01 & 257.76 \\ \hline
+Device B & 57.13 & 41.58 & 54.96 & 3.87 & 257.72 \\ \hline
+\end{tabular}
+\label{tab:ping_latency}
+\end{table}

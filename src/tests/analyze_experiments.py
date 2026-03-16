@@ -24,6 +24,22 @@ def load_ping_data(filepath):
             rtts.append(float(row['rtt_ms']))
     return np.array(seqs), np.array(ips), np.array(rtts)
 
+def load_hardware_latency_data(filepath):
+    samples = []
+    lat_a = []
+    lat_b = []
+    drifts = []
+    with open(filepath, 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if 'latency_a_us' in row and row['latency_a_us']:
+                samples.append(int(row['sample']))
+                lat_a.append(float(row['latency_a_us']))
+                lat_b.append(float(row['latency_b_us']))
+                if 'drift_us' in row:
+                    drifts.append(float(row['drift_us']))
+    return np.array(samples), np.array(lat_a), np.array(lat_b), np.array(drifts)
+
 def load_sync_data(filepath):
     samples = []
     drifts = []
@@ -38,7 +54,7 @@ def main():
     # File paths
     base_dir = '/Users/juanes/Documents/Kywo/test_results'
     f_ping = os.path.join(base_dir, 'ping_test_20260316_104917.csv')
-    f_arch1 = os.path.join(base_dir, 'arch1_latency_sync_test_20260316_104328')
+    f_arch1 = os.path.join(base_dir, 'arch1_latency_sync_test_20260316_104328.csv')
     f_arch2 = os.path.join(base_dir, 'arch2_sync_test_20260316_132711.csv')
     
     output_dir = os.path.join(base_dir, 'publication_figures')
@@ -51,21 +67,26 @@ def main():
     a2_samples, a2_drifts = load_sync_data(f_arch2)
 
     # 2. Figure 1: Architecture 1 - Software Ping-Pong Latency
-    # 1:2 relationship (Height:Width) -> figsize=(12, 6)
-    fig1, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
+    # 1:2 relationship (Height:Width) -> Subplots are 8x4 -> figsize=(16, 4)
+    fig1, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 4))
 
     unique_ips = np.unique(p_ips)
-    colors = ['#1f77b4', '#ff7f0e']
+    colors = ['crimson', 'navy']
+    
+    rtts_list = []
+    labels_list = []
     
     for idx, ip in enumerate(unique_ips):
         mask = (p_ips == ip)
         
+        device_label = 'Device A' if ip == '192.168.0.102' else 'Device B'
+        
         # Plot Time Series
         ax1.plot(p_seqs[mask], p_rtts[mask], marker='o', linestyle='-', 
-                 markersize=3, alpha=0.7, label=f'Edge Node ({ip})', color=colors[idx])
+                 markersize=3, alpha=0.7, label=device_label, color=colors[idx])
         
-        # Plot Histogram
-        ax2.hist(p_rtts[mask], bins=30, alpha=0.6, label=f'Edge Node ({ip})', color=colors[idx])
+        rtts_list.append(p_rtts[mask])
+        labels_list.append(device_label)
 
     ax1.set_title('Ping Round-Trip Latency Over Time')
     ax1.set_xlabel('Sequence Number')
@@ -73,19 +94,55 @@ def main():
     ax1.grid(True, linestyle='--', alpha=0.5)
     ax1.legend()
 
-    ax2.set_title('Ping Round-Trip Latency Distribution')
-    ax2.set_xlabel('Round-Trip Time (ms)')
-    ax2.set_ylabel('Frequency')
-    ax2.grid(True, linestyle='--', alpha=0.5)
-    ax2.legend()
+    # Plot Distribution (Boxplot without outliers)
+    bp_1 = ax2.boxplot(rtts_list, patch_artist=True, showfliers=False, tick_labels=labels_list)
+    
+    for patch, color in zip(bp_1['boxes'], colors):
+        patch.set_facecolor(color)
+        patch.set_alpha(0.6)
+
+    ax2.set_title('Ping Latency Distribution (No Outliers)')
+    ax2.set_ylabel('Round-Trip Time (ms)')
+    ax2.grid(True, axis='y', linestyle='--', alpha=0.5)
 
     plt.tight_layout()
     fig1_path = os.path.join(output_dir, 'fig1_ping_latency.png')
     fig1.savefig(fig1_path, dpi=300, bbox_inches='tight')
     print(f"Saved: {fig1_path}")
 
-    # 3. Figure 2: Architecture 1 vs Architecture 2 Synchronization Drift
-    fig2, (ax3, ax4) = plt.subplots(1, 2, figsize=(12, 6))
+    # 3. Figure 2: Architecture 1 - Hardware Observer Latency
+    h_samples, h_lat_a, h_lat_b, h_drifts = load_hardware_latency_data(f_arch1)
+    
+    fig2, (ax_h1, ax_h2) = plt.subplots(1, 2, figsize=(16, 4))
+
+    # Plot Time Series
+    ax_h1.plot(h_samples, h_lat_a / 1000.0, marker='o', linestyle='-', markersize=3, alpha=0.7, label='Device A', color='crimson')
+    ax_h1.plot(h_samples, h_lat_b / 1000.0, marker='s', linestyle='-', markersize=3, alpha=0.7, label='Device B', color='navy')
+    ax_h1.set_title('Hardware Observer Latency Over Time')
+    ax_h1.set_xlabel('Sample Number')
+    ax_h1.set_ylabel('Latency (ms)')
+    ax_h1.grid(True, linestyle='--', alpha=0.5)
+    ax_h1.legend()
+
+    # Plot Distribution (Boxplot without outliers)
+    bp_h = ax_h2.boxplot([h_lat_a / 1000.0, h_lat_b / 1000.0], patch_artist=True, showfliers=False, tick_labels=['Device A', 'Device B'])
+    
+    colors_h = ['crimson', 'navy']
+    for patch, color in zip(bp_h['boxes'], colors_h):
+        patch.set_facecolor(color)
+        patch.set_alpha(0.6)
+        
+    ax_h2.set_title('Hardware Latency Distribution (No Outliers)')
+    ax_h2.set_ylabel('Latency (ms)')
+    ax_h2.grid(True, axis='y', linestyle='--', alpha=0.5)
+
+    plt.tight_layout()
+    fig2_path = os.path.join(output_dir, 'fig2_hardware_latency.png')
+    fig2.savefig(fig2_path, dpi=300, bbox_inches='tight')
+    print(f"Saved: {fig2_path}")
+
+    # 4. Figure 3: Architecture 1 vs Architecture 2 Synchronization Drift
+    fig3, (ax3, ax4) = plt.subplots(1, 2, figsize=(16, 4))
 
     # Absolute drift arrays
     abs_drift_a1 = np.abs(a1_drifts)
@@ -103,31 +160,96 @@ def main():
     ax3.grid(True, linestyle='--', alpha=0.5)
     ax3.legend()
 
-    # Plot 2: Violin plot comparison
+    # Plot 2: Boxplot comparison without outliers instead of Violin plots
     data_to_plot = [abs_drift_a1, abs_drift_a2]
-    parts = ax4.violinplot(data_to_plot, showmeans=True, showextrema=True, showmedians=True)
+    bp = ax4.boxplot(data_to_plot, patch_artist=True, showfliers=False, tick_labels=['Arch 1 (UDP)', 'Arch 2 (ESP-NOW)'])
     
-    parts['bodies'][0].set_facecolor('crimson')
-    parts['bodies'][1].set_facecolor('navy')
-    for pc in parts['bodies']:
-        pc.set_edgecolor('black')
-        pc.set_alpha(0.6)
+    colors = ['crimson', 'navy']
+    for patch, color in zip(bp['boxes'], colors):
+        patch.set_facecolor(color)
+        patch.set_alpha(0.6)
 
-    ax4.set_xticks([1, 2])
-    ax4.set_xticklabels(['Arch 1 (UDP)', 'Arch 2 (ESP-NOW)'])
-    ax4.set_title('Distribution of Synchronization Skew')
+    ax4.set_title('Distribution of Sync Skew (No Outliers)')
     ax4.set_ylabel('Absolute Skew (µs)')
     ax4.grid(True, axis='y', linestyle='--', alpha=0.5)
 
     plt.tight_layout()
-    fig2_path = os.path.join(output_dir, 'fig2_sync_comparison.png')
-    fig2.savefig(fig2_path, dpi=300, bbox_inches='tight')
-    print(f"Saved: {fig2_path}")
+    fig3_path = os.path.join(output_dir, 'fig3_sync_comparison.png')
+    fig3.savefig(fig3_path, dpi=300, bbox_inches='tight')
+    print(f"Saved: {fig3_path}")
 
-    # Calculate Summary Statistics for printing
-    print("\n--- Summary Statistics ---")
-    print(f"Arch 1 Avg Skew : {np.mean(abs_drift_a1):.2f} µs | Std: {np.std(abs_drift_a1):.2f} µs | Max: {np.max(abs_drift_a1):.0f} µs")
-    print(f"Arch 2 Avg Skew : {np.mean(abs_drift_a2):.2f} µs | Std: {np.std(abs_drift_a2):.2f} µs | Max: {np.max(abs_drift_a2):.0f} µs")
+    # 5. Figure 4: Latency vs Sync Skew Scatter Plot (Architecture 1)
+    fig4, ax5 = plt.subplots(figsize=(8, 6))
+    
+    # Calculate average latency between A and B
+    avg_latency = (h_lat_a + h_lat_b) / 2.0 / 1000.0 # mostly for general latency scale (ms)
+    abs_h_drifts = np.abs(h_drifts)
+    
+    scatter = ax5.scatter(avg_latency, abs_h_drifts, c=avg_latency, cmap='viridis', alpha=0.7, edgecolors='k')
+    ax5.set_title('Average Hardware Latency vs. Synchronization Skew (Arch 1)')
+    ax5.set_xlabel('Average Hardware Latency (ms)')
+    ax5.set_ylabel('Absolute Synchronization Skew (µs)')
+    ax5.grid(True, linestyle='--', alpha=0.5)
+    
+    cbar = fig4.colorbar(scatter, ax=ax5)
+    cbar.set_label('Average Latency (ms)')
+    
+    plt.tight_layout()
+    fig4_path = os.path.join(output_dir, 'fig4_latency_vs_skew_scatter.png')
+    fig4.savefig(fig4_path, dpi=300, bbox_inches='tight')
+    print(f"Saved: {fig4_path}")
+
+    # Calculate Summary Statistics and write to file
+    tables_path = os.path.join(output_dir, 'latex_tables.txt')
+    with open(tables_path, 'w') as f_out:
+        f_out.write("% Table 1: Synchronization Drift Statistics\n")
+        f_out.write("\\begin{table}[htpb]\n")
+        f_out.write("\\centering\n")
+        f_out.write("\\caption{Synchronization Drift Comparison (µs)}\n")
+        f_out.write("\\begin{tabular}{|l|c|c|c|c|c|}\n")
+        f_out.write("\\hline\n")
+        f_out.write("\\textbf{Architecture} & \\textbf{Mean} & \\textbf{Median} & \\textbf{Std Dev} & \\textbf{Min} & \\textbf{Max} \\\\ \\hline\n")
+        f_out.write(f"Arch 1 (UDP) & {np.mean(abs_drift_a1):.2f} & {np.median(abs_drift_a1):.2f} & {np.std(abs_drift_a1):.2f} & {np.min(abs_drift_a1):.0f} & {np.max(abs_drift_a1):.0f} \\\\ \\hline\n")
+        f_out.write(f"Arch 2 (ESP-NOW) & {np.mean(abs_drift_a2):.2f} & {np.median(abs_drift_a2):.2f} & {np.std(abs_drift_a2):.2f} & {np.min(abs_drift_a2):.0f} & {np.max(abs_drift_a2):.0f} \\\\ \\hline\n")
+        f_out.write("\\end{tabular}\n")
+        f_out.write("\\label{tab:sync_drift}\n")
+        f_out.write("\\end{table}\n\n")
+        
+        # --- Table 2: Hardware Latency Statistics ---
+        lat_a_ms = h_lat_a / 1000.0
+        lat_b_ms = h_lat_b / 1000.0
+        
+        f_out.write("% Table 2: Hardware Latency Statistics\n")
+        f_out.write("\\begin{table}[htpb]\n")
+        f_out.write("\\centering\n")
+        f_out.write("\\caption{Hardware Latency Statistics for Architecture 1 (ms)}\n")
+        f_out.write("\\begin{tabular}{|l|c|c|c|c|c|}\n")
+        f_out.write("\\hline\n")
+        f_out.write("\\textbf{Device} & \\textbf{Mean} & \\textbf{Median} & \\textbf{Std Dev} & \\textbf{Min} & \\textbf{Max} \\\\ \\hline\n")
+        f_out.write(f"Device A & {np.mean(lat_a_ms):.2f} & {np.median(lat_a_ms):.2f} & {np.std(lat_a_ms):.2f} & {np.min(lat_a_ms):.2f} & {np.max(lat_a_ms):.2f} \\\\ \\hline\n")
+        f_out.write(f"Device B & {np.mean(lat_b_ms):.2f} & {np.median(lat_b_ms):.2f} & {np.std(lat_b_ms):.2f} & {np.min(lat_b_ms):.2f} & {np.max(lat_b_ms):.2f} \\\\ \\hline\n")
+        f_out.write("\\end{tabular}\n")
+        f_out.write("\\label{tab:hw_latency}\n")
+        f_out.write("\\end{table}\n\n")
+        
+        # --- Table 3: Ping Latency Statistics ---
+        f_out.write("% Table 3: Ping Latency Statistics\n")
+        f_out.write("\\begin{table}[htpb]\n")
+        f_out.write("\\centering\n")
+        f_out.write("\\caption{Software Ping Latency Statistics (ms)}\n")
+        f_out.write("\\begin{tabular}{|l|c|c|c|c|c|}\n")
+        f_out.write("\\hline\n")
+        f_out.write("\\textbf{Device} & \\textbf{Mean} & \\textbf{Median} & \\textbf{Std Dev} & \\textbf{Min} & \\textbf{Max} \\\\ \\hline\n")
+        for idx, ip in enumerate(unique_ips):
+            mask = (p_ips == ip)
+            dev_rtts = p_rtts[mask]
+            device_label = 'Device A' if ip == '192.168.0.102' else 'Device B'
+            f_out.write(f"{device_label} & {np.mean(dev_rtts):.2f} & {np.median(dev_rtts):.2f} & {np.std(dev_rtts):.2f} & {np.min(dev_rtts):.2f} & {np.max(dev_rtts):.2f} \\\\ \\hline\n")
+        f_out.write("\\end{tabular}\n")
+        f_out.write("\\label{tab:ping_latency}\n")
+        f_out.write("\\end{table}\n")
+
+    print(f"Saved LaTeX tables to: {tables_path}")
     
 if __name__ == '__main__':
     main()
