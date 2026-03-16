@@ -1,7 +1,7 @@
 % Table 1: Synchronization Drift Statistics
 \begin{table}[htpb]
 \centering
-\caption{Synchronization Drift Comparison (Âµs)}
+\caption{Synchronization Drift Comparison (µs)}
 \begin{tabular}{|l|c|c|c|c|c|}
 \hline
 \textbf{Architecture} & \textbf{Mean} & \textbf{Median} & \textbf{Std Dev} & \textbf{Min} & \textbf{Max} \\ \hline

@@ -1,27 +1,34 @@
 sequenceDiagram
-    participant PC as Mac (Python Test Script)
+    participant PC as PC (Python Test Script)
     participant N as Wi-Fi Router
-    participant E1 as Edge Node 1 (Arch 1 Firmware)
+    participant E1 as Edge Node 1 (Arch 1)
+    participant E2 as Edge Node 2 (Arch 1)
 
-    Note over PC, E1: Test 0: Software Ping-Pong (Round Trip Time)
+    Note over PC, E2: Test 0: Software Ping-Pong (Round Trip Time & Inter-Device Drift)
     
     loop Ping-Pong Collection Loop
         PC->>PC: Record Start Time (t_start)
         PC->>N: UDP Broadcast ("relay:on")
         
-        Note over N: Wi-Fi Latency (Trip 1)
+        Note over N: Wi-Fi Latency & Contention
         
-        N-->>E1: UDP Payload Arrives
-        E1->>E1: Process Socket buffer
+        par Device Responses
+            N-->>E1: UDP Payload Arrives
+            E1->>E1: Process Socket buffer
+            E1->>N: UDP Unicast ("ack:on")
+            N-->>PC: Response from E1
+            PC->>PC: Record t_end_1
+        and
+            N-->>E2: UDP Payload Arrives
+            E2->>E2: Process Socket buffer
+            E2->>N: UDP Unicast ("ack:on")
+            N-->>PC: Response from E2
+            PC->>PC: Record t_end_2
+        end
         
-        E1->>N: UDP Unicast ("ack:on")
-        
-        Note over N: Wi-Fi Latency (Trip 2)
-        
-        N-->>PC: UDP Payload Arrives
-        PC->>PC: Record End Time (t_end)
-        
-        Note over PC: Round Trip Latency = (t_end - t_start)
+        Note over PC: RTT_1 = (t_end_1 - t_start)
+        Note over PC: RTT_2 = (t_end_2 - t_start)
+        Note over PC: Software Drift = |t_end_1 - t_end_2|
     end
 
 
@@ -87,4 +94,47 @@ sequenceDiagram
         end
         
         Note over PC: Append Δt to CSV & Update Live Metrics
+    end
+
+
+
+
+
+%%%%%%
+
+---
+config:
+  theme: neutral
+  htmlLabels : true
+  securityLevel : loose
+---
+
+sequenceDiagram
+    participant PC as PC adquisition
+    participant Obs as Hardware Observer
+    participant E1 as Edge Node 1 
+    participant E2 as Edge Node 2 
+
+    Note over PC, E2: Test 2: Arch 2 Hardware Observer (Determinism & Sync Drift)
+    
+
+    
+    loop Indefinite Hardware Observation
+        
+        par Automatic Background Execution
+            E1->>Obs: digitalWrite(PIN_A, HIGH) at T_target
+            Obs->>Obs: Hardware Interrupt A (T_A)
+        and
+            E2->>Obs: digitalWrite(PIN_B, HIGH) at (T_target + Offset)
+            Obs->>Obs: Hardware Interrupt B (T_B)
+        end
+        
+        Note over Obs: Calculate Drift Δt 
+        
+        alt 
+            Obs-->>PC: Serial Comunication (T_A, T_B, Δt)
+        
+        end
+        
+
     end

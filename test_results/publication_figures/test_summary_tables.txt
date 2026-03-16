@@ -1,0 +1,125 @@
+================================================================================
+ KYWO SYSTEM - EXPERIMENTAL TEST SUMMARY TABLES
+ Date: March 16, 2026
+================================================================================
+
+--------------------------------------------------------------------------------
+TEST 0: SOFTWARE PING-PONG (Round Trip Time)
+--------------------------------------------------------------------------------
+Architecture:        Architecture 1 (Centralized UDP Broadcast)
+Purpose:             Software-based round-trip latency measurement
+Measurement Method:  Software timestamps (Python time.time())
+Test Setup:          PC broadcasts UDP 'relay:on' → Edge node responds 'ack:on'
+Sample Size:         399 ping-pong exchanges
+Devices Tested:      2 ESP32 edge nodes
+
+Key Metrics Measured:
+  - Round-Trip Time (RTT) in milliseconds
+  - Network latency variability
+  - Per-device latency distribution
+
+Results Summary:
+  Device A (192.168.0.102):
+    Mean RTT:        58.25 ms
+    Median RTT:      41.92 ms
+    Std Dev:         56.58 ms
+    Range:         4.01 - 257.76 ms
+    Samples:       200
+  Device B (192.168.0.103):
+    Mean RTT:        57.13 ms
+    Median RTT:      41.58 ms
+    Std Dev:         54.96 ms
+    Range:         3.87 - 257.72 ms
+    Samples:       199
+
+--------------------------------------------------------------------------------
+TEST 1: HARDWARE OBSERVER - ARCHITECTURE 1 (Ground Truth Latency & Sync)
+--------------------------------------------------------------------------------
+Architecture:        Architecture 1 (Centralized UDP Broadcast)
+Purpose:             Hardware-timed ground truth latency and synchronization
+Measurement Method:  Hardware interrupts on Observer ESP32 (microsecond timer)
+Test Setup:          PC triggers observer + broadcasts UDP → 2 nodes respond
+                     → Observer captures GPIO pin timing with hardware interrupts
+Sample Size:         200 hardware-timed events
+Devices Tested:      2 ESP32 edge nodes + 1 observer
+
+Key Metrics Measured:
+  - Absolute hardware latency (T_A, T_B from trigger)
+  - Synchronization drift (|T_A - T_B|)
+  - UDP broadcast reception timing
+
+Results Summary:
+  Device A Hardware Latency:
+    Mean:            49.42 ms
+    Median:          25.16 ms
+    Std Dev:         48.68 ms
+    Range:         2.05 - 210.51 ms
+
+  Device B Hardware Latency:
+    Mean:            49.42 ms
+    Median:          25.16 ms
+    Std Dev:         48.69 ms
+    Range:         2.06 - 210.50 ms
+
+  Synchronization Drift (|T_A - T_B|):
+    Mean:             7.88 µs
+    Median:           5.00 µs
+    Std Dev:         10.34 µs
+    Range:         1 - 99 µs
+    P95:             21.00 µs
+    P99:             32.50 µs
+
+--------------------------------------------------------------------------------
+TEST 2: HARDWARE OBSERVER - ARCHITECTURE 2 (Determinism & Sync Drift)
+--------------------------------------------------------------------------------
+Architecture:        Architecture 2 (Distributed ESP-NOW + Local Execution)
+Purpose:             Measure autonomous synchronization drift over time
+Measurement Method:  Hardware interrupts on Observer ESP32 (passive monitoring)
+Test Setup:          2 nodes run independent state machines (grandmaster/follower)
+                     → Observer passively captures GPIO timing drift
+                     → ESP-NOW sync every 2000ms
+Sample Size:         200 autonomous pulse pairs
+Devices Tested:      2 ESP32 edge nodes + 1 observer
+
+Key Metrics Measured:
+  - Synchronization drift Δt = (T_A - T_B)
+  - Clock drift accumulation between ESP-NOW syncs
+  - Long-term timing stability
+
+Results Summary:
+  Synchronization Drift (|Δt|):
+    Mean:           108.47 µs
+    Median:          31.00 µs
+    Std Dev:        495.96 µs
+    Range:         1 - 6449 µs
+    P95:            406.10 µs
+    P99:           1563.89 µs
+
+================================================================================
+COMPARATIVE ANALYSIS: ARCHITECTURE 1 vs ARCHITECTURE 2
+================================================================================
+
+Synchronization Performance Comparison:
+  Metric                    Arch 1 (UDP)    Arch 2 (ESP-NOW)    Ratio (A2/A1)
+  ---------------------------------------------------------------------------
+  Mean Drift (µs)               7.88          108.47             13.8x
+  Median Drift (µs)             5.00           31.00              6.2x
+  Std Dev (µs)                 10.34          495.96             48.0x
+  Max Drift (µs)                  99            6449             65.1x
+  P95 Drift (µs)               21.00          406.10             19.3x
+  P99 Drift (µs)               32.50         1563.89             48.1x
+
+Key Findings:
+  • Architecture 1 achieves 13.8x better mean synchronization
+  • Architecture 1 has 48.0x more stable timing (lower std dev)
+  • Architecture 1 worst-case drift: 99 µs
+  • Architecture 2 worst-case drift: 6449 µs (65.1x worse)
+
+Conclusion:
+  Architecture 1 (centralized UDP broadcast) demonstrates superior
+  synchronization performance with sub-10µs mean drift, compared to
+  Architecture 2's ~108µs mean drift. The direct triggering
+  mechanism in Arch 1 eliminates clock drift accumulation that affects
+  Arch 2's distributed execution model.
+
+================================================================================

@@ -52,7 +52,7 @@ def load_sync_data(filepath):
 
 def main():
     # File paths
-    base_dir = '/Users/juanes/Documents/Kywo/test_results'
+    base_dir = r'c:\Users\jehm\Documents\kywoSystem\test_results'
     f_ping = os.path.join(base_dir, 'ping_test_20260316_104917.csv')
     f_arch1 = os.path.join(base_dir, 'arch1_latency_sync_test_20260316_104328.csv')
     f_arch2 = os.path.join(base_dir, 'arch2_sync_test_20260316_132711.csv')
@@ -250,6 +250,132 @@ def main():
         f_out.write("\\end{table}\n")
 
     print(f"Saved LaTeX tables to: {tables_path}")
+    
+    # Generate Test Summary Tables in LaTeX Format
+    summary_path = os.path.join(output_dir, 'test_summary_tables.tex')
+    with open(summary_path, 'w', encoding='utf-8') as f_sum:
+        f_sum.write("% KYWO SYSTEM - EXPERIMENTAL TEST SUMMARY TABLES\n")
+        f_sum.write("% Date: March 16, 2026\n")
+        f_sum.write("% Copy and paste these tables into your LaTeX document\n\n")
+        
+        # --- Test 0 Description and Results ---
+        f_sum.write("% Test 0: Software Ping-Pong Description\n")
+        f_sum.write("% This test measures round-trip latency and inter-device synchronization using\n")
+        f_sum.write("% software timestamps. The PC broadcasts a UDP packet to both edge nodes simultaneously,\n")
+        f_sum.write("% and each node responds with an acknowledgment. Software drift is calculated as the\n")
+        f_sum.write("% timing difference between the two device responses, providing a software-based\n")
+        f_sum.write("% estimate of synchronization quality.\n\n")
+        
+        # Calculate software drift statistics
+        # Group by sequence number to find pairs
+        unique_seqs = np.unique(p_seqs)
+        software_drifts = []
+        for seq in unique_seqs:
+            mask = (p_seqs == seq)
+            if np.sum(mask) == 2:  # Both devices responded
+                times = p_rtts[mask]
+                drift = np.abs(times[0] - times[1])
+                software_drifts.append(drift)
+        software_drifts = np.array(software_drifts)
+        
+        # Test 0 Enhanced Results Table with Drift
+        f_sum.write("% Table: Test 0 - Software Ping-Pong Results (Architecture 1)\n")
+        f_sum.write("\\begin{table}[htbp]\n")
+        f_sum.write("\\centering\n")
+        f_sum.write("\\caption{Test 0: Software Ping-Pong Round-Trip Latency and Drift}\n")
+        f_sum.write("\\begin{tabular}{|l|c|c|c|c|c|}\n")
+        f_sum.write("\\hline\n")
+        f_sum.write("\\textbf{Metric} & \\textbf{Mean} & \\textbf{Median} & \\textbf{Std Dev} & \\textbf{Range} & \\textbf{N} \\\\ \\hline\n")
+        for idx, ip in enumerate(unique_ips):
+            mask = (p_ips == ip)
+            dev_rtts = p_rtts[mask]
+            device_label = 'Device A RTT (ms)' if ip == '192.168.0.102' else 'Device B RTT (ms)'
+            f_sum.write(f"{device_label} & {np.mean(dev_rtts):.2f} & {np.median(dev_rtts):.2f} & {np.std(dev_rtts):.2f} & {np.min(dev_rtts):.2f}--{np.max(dev_rtts):.2f} & {len(dev_rtts)} \\\\ \\hline\n")
+        f_sum.write(f"Software Drift (ms) & {np.mean(software_drifts):.2f} & {np.median(software_drifts):.2f} & {np.std(software_drifts):.2f} & {np.min(software_drifts):.2f}--{np.max(software_drifts):.2f} & {len(software_drifts)} \\\\ \\hline\n")
+        f_sum.write("\\end{tabular}\n")
+        f_sum.write("\\label{tab:test0_results}\n")
+        f_sum.write("\\end{table}\n\n")
+        
+        # --- Test 1 Description and Combined Results ---
+        f_sum.write("% Test 1: Hardware Observer - Architecture 1 Description\n")
+        f_sum.write("% This test uses a hardware observer with microsecond-precision interrupts to measure\n")
+        f_sum.write("% ground truth latency and synchronization. The PC triggers the observer and broadcasts\n")
+        f_sum.write("% a UDP packet to both edge nodes. Each node responds by setting a GPIO pin HIGH, which\n")
+        f_sum.write("% the observer captures via hardware interrupts. This eliminates software timestamp\n")
+        f_sum.write("% inaccuracies and provides the true physical synchronization between devices.\n\n")
+        
+        # Test 1 Combined Results Table
+        lat_a_ms = h_lat_a / 1000.0
+        lat_b_ms = h_lat_b / 1000.0
+        abs_h_drift = np.abs(h_drifts)
+        
+        f_sum.write("% Table: Test 1 - Complete Hardware Observer Results (Architecture 1)\n")
+        f_sum.write("\\begin{table}[htbp]\n")
+        f_sum.write("\\centering\n")
+        f_sum.write("\\caption{Test 1: Hardware Observer Latency and Synchronization (Architecture 1)}\n")
+        f_sum.write("\\begin{tabular}{|l|c|c|c|c|c|c|}\n")
+        f_sum.write("\\hline\n")
+        f_sum.write("\\textbf{Metric} & \\textbf{Mean} & \\textbf{Median} & \\textbf{Std Dev} & \\textbf{Range} & \\textbf{P95} & \\textbf{P99} \\\\ \\hline\n")
+        f_sum.write(f"Device A Latency (ms) & {np.mean(lat_a_ms):.2f} & {np.median(lat_a_ms):.2f} & {np.std(lat_a_ms):.2f} & {np.min(lat_a_ms):.2f}--{np.max(lat_a_ms):.2f} & {np.percentile(lat_a_ms, 95):.2f} & {np.percentile(lat_a_ms, 99):.2f} \\\\ \\hline\n")
+        f_sum.write(f"Device B Latency (ms) & {np.mean(lat_b_ms):.2f} & {np.median(lat_b_ms):.2f} & {np.std(lat_b_ms):.2f} & {np.min(lat_b_ms):.2f}--{np.max(lat_b_ms):.2f} & {np.percentile(lat_b_ms, 95):.2f} & {np.percentile(lat_b_ms, 99):.2f} \\\\ \\hline\n")
+        f_sum.write(f"Sync Drift ($\\mu$s) & {np.mean(abs_h_drift):.2f} & {np.median(abs_h_drift):.2f} & {np.std(abs_h_drift):.2f} & {np.min(abs_h_drift):.0f}--{np.max(abs_h_drift):.0f} & {np.percentile(abs_h_drift, 95):.2f} & {np.percentile(abs_h_drift, 99):.2f} \\\\ \\hline\n")
+        f_sum.write("\\end{tabular}\n")
+        f_sum.write("\\label{tab:test1_results}\n")
+        f_sum.write("\\end{table}\n\n")
+        
+        # --- Test 2 Description and Results ---
+        f_sum.write("% Test 2: Hardware Observer - Architecture 2 Description\n")
+        f_sum.write("% This test measures synchronization drift in autonomous operation. Two edge nodes run\n")
+        f_sum.write("% independent state machines (grandmaster and follower) that execute sequences without\n")
+        f_sum.write("% centralized control. The hardware observer passively monitors GPIO timing between the\n")
+        f_sum.write("% two nodes. ESP-NOW clock synchronization occurs every 2000ms to correct for hardware\n")
+        f_sum.write("% clock drift. This test reveals the long-term stability of distributed execution.\n\n")
+        
+        # Test 2 Results Table
+        f_sum.write("% Table: Test 2 - Hardware Observer Results (Architecture 2)\n")
+        f_sum.write("\\begin{table}[htbp]\n")
+        f_sum.write("\\centering\n")
+        f_sum.write("\\caption{Test 2: Synchronization Drift in Autonomous Execution (Architecture 2)}\n")
+        f_sum.write("\\begin{tabular}{|l|c|c|c|c|c|c|}\n")
+        f_sum.write("\\hline\n")
+        f_sum.write("\\textbf{Metric} & \\textbf{Mean} & \\textbf{Median} & \\textbf{Std Dev} & \\textbf{Range} & \\textbf{P95} & \\textbf{P99} \\\\ \\hline\n")
+        f_sum.write(f"Sync Drift ($\\mu$s) & {np.mean(abs_drift_a2):.2f} & {np.median(abs_drift_a2):.2f} & {np.std(abs_drift_a2):.2f} & {np.min(abs_drift_a2):.0f}--{np.max(abs_drift_a2):.0f} & {np.percentile(abs_drift_a2, 95):.2f} & {np.percentile(abs_drift_a2, 99):.2f} \\\\ \\hline\n")
+        f_sum.write("\\end{tabular}\n")
+        f_sum.write("\\label{tab:test2_results}\n")
+        f_sum.write("\\end{table}\n\n")
+        
+        # --- Comparative Analysis Table ---
+        f_sum.write("% Table: Comparative Analysis\n")
+        f_sum.write("\\begin{table}[htbp]\n")
+        f_sum.write("\\centering\n")
+        f_sum.write("\\caption{Comparative Analysis: Architecture 1 vs Architecture 2 Synchronization Performance}\n")
+        f_sum.write("\\begin{tabular}{|l|c|c|c|}\n")
+        f_sum.write("\\hline\n")
+        f_sum.write("\\textbf{Metric} & \\textbf{Arch 1 (UDP)} & \\textbf{Arch 2 (ESP-NOW)} & \\textbf{Ratio (A2/A1)} \\\\ \\hline\n")
+        ratio_mean = np.mean(abs_drift_a2) / np.mean(abs_drift_a1)
+        ratio_median = np.median(abs_drift_a2) / np.median(abs_drift_a1)
+        ratio_std = np.std(abs_drift_a2) / np.std(abs_drift_a1)
+        ratio_max = np.max(abs_drift_a2) / np.max(abs_drift_a1)
+        ratio_p95 = np.percentile(abs_drift_a2, 95) / np.percentile(abs_drift_a1, 95)
+        ratio_p99 = np.percentile(abs_drift_a2, 99) / np.percentile(abs_drift_a1, 99)
+        f_sum.write(f"Mean Drift ($\\mu$s) & {np.mean(abs_drift_a1):.2f} & {np.mean(abs_drift_a2):.2f} & {ratio_mean:.1f}$\\times$ \\\\ \\hline\n")
+        f_sum.write(f"Median Drift ($\\mu$s) & {np.median(abs_drift_a1):.2f} & {np.median(abs_drift_a2):.2f} & {ratio_median:.1f}$\\times$ \\\\ \\hline\n")
+        f_sum.write(f"Std Dev ($\\mu$s) & {np.std(abs_drift_a1):.2f} & {np.std(abs_drift_a2):.2f} & {ratio_std:.1f}$\\times$ \\\\ \\hline\n")
+        f_sum.write(f"Max Drift ($\\mu$s) & {np.max(abs_drift_a1):.0f} & {np.max(abs_drift_a2):.0f} & {ratio_max:.1f}$\\times$ \\\\ \\hline\n")
+        f_sum.write(f"P95 Drift ($\\mu$s) & {np.percentile(abs_drift_a1, 95):.2f} & {np.percentile(abs_drift_a2, 95):.2f} & {ratio_p95:.1f}$\\times$ \\\\ \\hline\n")
+        f_sum.write(f"P99 Drift ($\\mu$s) & {np.percentile(abs_drift_a1, 99):.2f} & {np.percentile(abs_drift_a2, 99):.2f} & {ratio_p99:.1f}$\\times$ \\\\ \\hline\n")
+        f_sum.write("\\end{tabular}\n")
+        f_sum.write("\\label{tab:comparative_analysis}\n")
+        f_sum.write("\\end{table}\n\n")
+        
+        # Add conclusions as a text block
+        f_sum.write("% Key Findings (use in document text):\n")
+        f_sum.write("% Architecture 1 achieves " + f"{ratio_mean:.1f}" + "$\\times$ better mean synchronization\n")
+        f_sum.write("% Architecture 1 has " + f"{ratio_std:.1f}" + "$\\times$ more stable timing (lower std dev)\n")
+        f_sum.write("% Architecture 1 worst-case drift: " + f"{np.max(abs_drift_a1):.0f}" + " $\\mu$s\n")
+        f_sum.write("% Architecture 2 worst-case drift: " + f"{np.max(abs_drift_a2):.0f}" + " $\\mu$s (" + f"{ratio_max:.1f}" + "$\\times$ worse)\n")
+        
+    print(f"Saved test summary tables (LaTeX format) to: {summary_path}")
     
 if __name__ == '__main__':
     main()
