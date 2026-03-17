@@ -1,22 +1,85 @@
-# kywoSystem: ESP32-C6 Command Server (Python)
+# Kywo System: Distributed ESP32-C6 Coordination Platform
 
-A small Python server to connect and manage multiple ESP32 WiFi devices. Each device has its own command queue so commands are routed independently.
+A distributed system for synchronized control of multiple ESP32-C6 devices using autonomous execution with periodic clock synchronization.
 
-## Current Scope
-- Register ESP32 devices with `device_id` and `device_token`
-- Queue commands for specific devices
-- Devices poll for pending commands
-- Devices acknowledge processed commands
+## Project Status
 
-## Folder Layout
-- `src/server/main.py`: FastAPI endpoints
-- `src/server/device_manager.py`: In-memory registry and queues
-- `src/server/models.py`: Request/response schemas
-- `docs/ARCHITECTURE.md`: architecture and flow
+### ✅ POC Complete (March 16, 2026)
+Proof-of-concept validated two architectures with comprehensive testing. **Architecture 2** selected for prototype development.
 
-## Run Locally
+### 🚧 Prototype In Development (Started March 17, 2026)
+Production-ready implementation of Architecture 2 with improved synchronization algorithms.
+
+## Repository Structure
+
+```
+kywoSystem/
+├── poc/                    # Proof-of-concept artifacts (COMPLETE)
+│   ├── firmware/          # All POC firmware variants
+│   ├── tests/             # Test scripts and experiments
+│   └── test_results/      # Performance data & analysis
+│
+├── prototype/             # Production prototype (IN PROGRESS)
+│   ├── firmware/          # Production-ready arch2 firmware
+│   ├── server/           # FastAPI configuration & monitoring
+│   └── docs/             # Prototype-specific documentation
+│
+├── src/                  # Shared server components
+│   └── server/          # Base FastAPI implementation
+│
+└── docs/                 # Project-wide documentation
+    └── ARCHITECTURE.md   # Original architecture overview
+```
+
+## Quick Navigation
+
+### For Understanding the Project
+- [POC Overview & Results](poc/README.md) - What we learned
+- [POC Test Analysis](poc/test_results/ANALYSIS_EVALUATION.md) - Detailed performance data
+- [Architecture Overview](docs/ARCHITECTURE.md) - Original design concepts
+
+### For Prototype Development
+- [Prototype README](prototype/README.md) - Current development status
+- [Prototype Architecture](prototype/docs/ARCHITECTURE.md) - Detailed Arch2 design
+- [Prototype Firmware](prototype/firmware/) - Production firmware (coming soon)
+
+## Architecture 2 Overview
+
+**Design**: Distributed autonomous execution with periodic clock synchronization
+- **Autonomy**: Nodes execute independently without continuous server communication
+- **Synchronization**: ESP-NOW broadcasts keep clocks aligned (500ms intervals)
+- **Configuration**: HTTP polling for sequence updates (1000ms intervals)
+- **Target**: <50µs mean drift (vs. 108µs in POC)
+
+## POC Key Findings
+
+### Architecture 1: Centralized UDP Broadcast
+- ✅ **Excellent sync**: 8µs mean drift
+- ⚠️ **High network load**: Continuous broadcasts
+- ⚠️ **No autonomy**: Server-dependent
+- **Decision**: Great for tight sync, but doesn't scale
+
+### Architecture 2: Distributed ESP-NOW + Local Execution
+- ⚠️ **POC sync**: 108µs mean drift (13.8× worse than Arch1)
+- ✅ **Low network load**: Periodic sync only
+- ✅ **Full autonomy**: Survives server downtime
+- ✅ **Deterministic**: Predictable local execution
+- **Decision**: Selected for prototype with sync improvements
+
+## Prototype Improvements
+
+The prototype addresses POC synchronization issues:
+1. **4× faster sync**: 2000ms → 500ms intervals
+2. **Dynamic compensation**: Measured latency vs. fixed 1054µs
+3. **Outlier rejection**: Ignore spurious sync packets
+4. **Predictive drift**: Linear interpolation between syncs
+
+**Target**: <50µs mean drift (vs. 108µs in POC)
+
+## Development Setup
+
+### Server (Shared Component)
 ```powershell
-cd c:\Users\jehm\Documents\Playground\kywoSystem
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
@@ -24,65 +87,10 @@ $env:ADMIN_API_KEY = "super-secret-admin"
 uvicorn src.server.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-## Example: Two ESP32 Devices
-Register both devices:
+### Firmware Development
+See [prototype/firmware/](prototype/firmware/) for production firmware (coming soon)  
+See [poc/firmware/](poc/firmware/) for POC variants
 
-```powershell
-curl -X POST http://localhost:8000/devices/register `
-  -H "Content-Type: application/json" `
-  -d '{"device_id":"esp32-a","device_token":"token-device-a","firmware_version":"1.0.0"}'
+## Contributing
 
-curl -X POST http://localhost:8000/devices/register `
-  -H "Content-Type: application/json" `
-  -d '{"device_id":"esp32-b","device_token":"token-device-b","firmware_version":"1.0.0"}'
-```
-
-Queue device-specific commands:
-
-```powershell
-curl -X POST http://localhost:8000/commands/esp32-a `
-  -H "X-API-Key: super-secret-admin" `
-  -H "Content-Type: application/json" `
-  -d '{"command":"relay:on"}'
-
-curl -X POST http://localhost:8000/commands/esp32-b `
-  -H "X-API-Key: super-secret-admin" `
-  -H "Content-Type: application/json" `
-  -d '{"command":"fan:off"}'
-```
-
-Device `esp32-a` fetches only its commands:
-
-```powershell
-curl "http://localhost:8000/devices/esp32-a/commands?token=token-device-a&after_command_id=0&limit=10"
-```
-
-Device `esp32-b` fetches only its commands:
-
-```powershell
-curl "http://localhost:8000/devices/esp32-b/commands?token=token-device-b&after_command_id=0&limit=10"
-```
-
-Acknowledge processed command:
-
-```powershell
-curl -X POST "http://localhost:8000/devices/esp32-a/ack?token=token-device-a" `
-  -H "Content-Type: application/json" `
-  -d '{"command_id":1}'
-```
-
-## Next Steps
-- Persist devices and queues in Redis/PostgreSQL
-- Add retry/timeout logic for command delivery
-- Add TLS and token rotation
-- Add dashboard or CLI for operations
-
-## ESP32 Firmware
-- Firmware client sketch: `firmware/esp32_c6_client/esp32_c6_client.ino`
-- Firmware instructions: `firmware/README.md`
-
-Suggested flow:
-1. Start this Python server.
-2. Flash one ESP32-C6 as `esp32-a` and another as `esp32-b`.
-3. Queue commands with `POST /commands/{device_id}`.
-4. Check serial logs on each board to confirm per-device routing.
+This project is in active prototype development. See [prototype/README.md](prototype/README.md) for current status and development roadmap.
