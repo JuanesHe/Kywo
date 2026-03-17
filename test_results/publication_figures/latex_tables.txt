@@ -31,8 +31,8 @@ Device B & 49.42 & 25.16 & 48.69 & 2.06 & 210.50 \\ \hline
 \begin{tabular}{|l|c|c|c|c|c|}
 \hline
 \textbf{Device} & \textbf{Mean} & \textbf{Median} & \textbf{Std Dev} & \textbf{Min} & \textbf{Max} \\ \hline
-Device A & 58.25 & 41.92 & 56.58 & 4.01 & 257.76 \\ \hline
-Device B & 57.13 & 41.58 & 54.96 & 3.87 & 257.72 \\ \hline
+Device A & 57.03 & 41.72 & 54.97 & 4.01 & 257.76 \\ \hline
+Device B & 56.89 & 41.45 & 54.92 & 3.87 & 257.72 \\ \hline
 \end{tabular}
 \label{tab:ping_latency}
 \end{table}

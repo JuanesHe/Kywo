@@ -283,15 +283,15 @@ def main():
         f_sum.write("\\begin{table}[htbp]\n")
         f_sum.write("\\centering\n")
         f_sum.write("\\caption{Test 0: Software Ping-Pong Round-Trip Latency and Drift}\n")
-        f_sum.write("\\begin{tabular}{|l|c|c|c|c|c|}\n")
+        f_sum.write("\\begin{tabular}{|l|c|c|c|c|c|c|}\n")
         f_sum.write("\\hline\n")
-        f_sum.write("\\textbf{Metric} & \\textbf{Mean} & \\textbf{Median} & \\textbf{Std Dev} & \\textbf{Range} & \\textbf{N} \\\\ \\hline\n")
+        f_sum.write("\\textbf{Metric} & \\textbf{Mean} & \\textbf{Median} & \\textbf{Std Dev} & \\textbf{Range} & \\textbf{P95} & \\textbf{P99} \\\\ \\hline\n")
         for idx, ip in enumerate(unique_ips):
             mask = (p_ips == ip)
             dev_rtts = p_rtts[mask]
             device_label = 'Device A RTT (ms)' if ip == '192.168.0.102' else 'Device B RTT (ms)'
-            f_sum.write(f"{device_label} & {np.mean(dev_rtts):.2f} & {np.median(dev_rtts):.2f} & {np.std(dev_rtts):.2f} & {np.min(dev_rtts):.2f}--{np.max(dev_rtts):.2f} & {len(dev_rtts)} \\\\ \\hline\n")
-        f_sum.write(f"Software Drift (ms) & {np.mean(software_drifts):.2f} & {np.median(software_drifts):.2f} & {np.std(software_drifts):.2f} & {np.min(software_drifts):.2f}--{np.max(software_drifts):.2f} & {len(software_drifts)} \\\\ \\hline\n")
+            f_sum.write(f"{device_label} & {np.mean(dev_rtts):.2f} & {np.median(dev_rtts):.2f} & {np.std(dev_rtts):.2f} & {np.min(dev_rtts):.2f}--{np.max(dev_rtts):.2f} & {np.percentile(dev_rtts, 95):.2f} & {np.percentile(dev_rtts, 99):.2f} \\\\ \\hline\n")
+        f_sum.write(f"Software Drift (ms) & {np.mean(software_drifts):.2f} & {np.median(software_drifts):.2f} & {np.std(software_drifts):.2f} & {np.min(software_drifts):.2f}--{np.max(software_drifts):.2f} & {np.percentile(software_drifts, 95):.2f} & {np.percentile(software_drifts, 99):.2f} \\\\ \\hline\n")
         f_sum.write("\\end{tabular}\n")
         f_sum.write("\\label{tab:test0_results}\n")
         f_sum.write("\\end{table}\n\n")
