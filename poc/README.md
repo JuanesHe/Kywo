@@ -17,6 +17,13 @@ All POC firmware variants tested during experimentation:
 - **arduino/esp32_c6_udp_client/** - UDP broadcast client (Architecture 1)
 - **espidf/** - ESP-IDF experimental code
 
+### `/server/`
+POC Python FastAPI server:
+- Device registration and authentication
+- Per-device command queuing
+- UDP broadcast support for Architecture 1
+- Web UI for monitoring
+
 ### `/tests/`
 Test scripts used for evaluation:
 - `udp_ping_test.py` - Software round-trip latency measurement

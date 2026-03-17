@@ -16,16 +16,14 @@ Production-ready implementation of Architecture 2 with improved synchronization 
 kywoSystem/
 ├── poc/                    # Proof-of-concept artifacts (COMPLETE)
 │   ├── firmware/          # All POC firmware variants
+│   ├── server/           # POC FastAPI server (command queuing)
 │   ├── tests/             # Test scripts and experiments
 │   └── test_results/      # Performance data & analysis
 │
 ├── prototype/             # Production prototype (IN PROGRESS)
 │   ├── firmware/          # Production-ready arch2 firmware
-│   ├── server/           # FastAPI configuration & monitoring
+│   ├── server/           # New server for sequence config & monitoring
 │   └── docs/             # Prototype-specific documentation
-│
-├── src/                  # Shared server components
-│   └── server/          # Base FastAPI implementation
 │
 └── docs/                 # Project-wide documentation
     └── ARCHITECTURE.md   # Original architecture overview
@@ -78,13 +76,14 @@ The prototype addresses POC synchronization issues:
 
 ## Development Setup
 
-### Server (Shared Component)
+### POC Server (for reference)
 ```powershell
+cd poc
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+pip install -r ../requirements.txt
 $env:ADMIN_API_KEY = "super-secret-admin"
-uvicorn src.server.main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn server.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ### Firmware Development
