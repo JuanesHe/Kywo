@@ -4,10 +4,10 @@
 // CONFIGURATION
 // ==========================================
 // Pin connected to Device A (Edge Node 1) Output Pin
-static const int PIN_DEVICE_A = 4;
+static const int PIN_DEVICE_A = 32;
 
 // Pin connected to Device B (Edge Node 2) Output Pin
-static const int PIN_DEVICE_B = 5;
+static const int PIN_DEVICE_B = 27;
 
 // ==========================================
 // VOLATILE TIMESTAMP REGISTERS
@@ -77,3 +77,4 @@ void loop() {
     }
   }
 }
+

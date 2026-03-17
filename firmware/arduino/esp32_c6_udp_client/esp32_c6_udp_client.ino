@@ -4,12 +4,18 @@
 #include <lwip/sockets.h> // POSIX sockets for blocking recvfrom
 #include <string.h>
 
+#define HOME 0
 // ---- Configuration ----
-static const char *WIFI_SSID = "0e94fc-2.4GHz";
-static const char *WIFI_PASSWORD = "yxnzJuan25";
+#if HOME
+  static const char *WIFI_SSID = "0e94fc-2.4GHz";
+  static const char *WIFI_PASSWORD = "yxnzJuan25";
+#else
+  static const char *WIFI_SSID = "TP-Link_9414";
+  static const char *WIFI_PASSWORD = "TP-Link_9414";
+#endif
 
 // Output pin — wire your LED or relay here
-static const int ACTUATOR_PIN = 15;
+static const int ACTUATOR_PIN = 6;
 
 // UDP port must match the server's broadcast port
 static const int UDP_PORT = 4210;
