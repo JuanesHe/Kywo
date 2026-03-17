@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kywo - Distributed ESP32 Control</title>
+    <style>
+        :root {
+            --bg:        #fafafa;
+            --panel:     #ffffff;
+            --border:    #e5e7eb;
+            --text:      #1f2937;
+            --muted:     #6b7280;
+            --primary:   #3b82f6;
+            --success:   #10b981;
+            --danger:    #ef4444;
+            --accent:    #8b5cf6;
+            --shadow:    rgba(0, 0, 0, 0.05);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem 1rem;
+        }
+
+        /* ── Header ── */
+        .header {
+            width: 100%;
+            max-width: 900px;
+            margin-bottom: 3rem;
+            text-align: center;
+        }
+        .header h1 { 
+            font-size: 2.5rem; 
+            font-weight: 300; 
+            color: var(--text); 
+            margin-bottom: 0.75rem;
+            letter-spacing: -0.02em;
+        }
+        .header p  { 
+            color: var(--muted); 
+            font-size: 0.95rem; 
+            line-height: 1.6;
+            font-weight: 400;
+        }
+
+        /* ── Panel ── */
+        .panel {
+            width: 100%;
+            max-width: 900px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 2.5rem;
+            box-shadow: 0 1px 3px var(--shadow);
+        }
+
+        /* ── Section headers ── */
+        .section-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--muted);
+            margin-bottom: 1.25rem;
+            margin-top: 0;
+        }
+
+        .divider { 
+            border: none; 
+            border-top: 1px solid var(--border); 
+            margin: 2.5rem 0; 
+        }
+
+        /* ── Buttons ── */
+        button {
+            background: white;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.15s;
+            font-weight: 400;
+        }
+        button:hover { 
+            background: var(--bg); 
+            border-color: var(--muted);
+        }
+        button:active { transform: scale(0.98); }
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .btn-primary {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+        .btn-primary:hover { 
+            background: #2563eb; 
+            border-color: #2563eb; 
+        }
+
+        .btn-accent {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+        .btn-accent:hover { 
+            background: #7c3aed; 
+            border-color: #7c3aed; 
+        }
+
+        .btn-master {
+            background: #fbbf24;
+            border-color: #fbbf24;
+            color: #78350f;
+        }
+        .btn-master:hover { 
+            background: #f59e0b; 
+            border-color: #f59e0b; 
+        }
+
+        /* ── Inputs ── */
+        input[type="text"], input[type="number"], select {
+            background: white;
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 4px;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+        }
+        input[type="text"]:focus, input[type="number"]:focus, select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(139,92,246,0.1);
+        }
+
+
+
+        /* ── Device selector row ── */
+        .device-row {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+        .device-row label {
+            font-size: 0.8125rem;
+            color: var(--text);
+            font-weight: 500;
+        }
+        .device-row select {
+            flex: 1;
+            min-width: 200px;
+            max-width: 350px;
+        }
+
+        /* ── Device list ── */
+        .device-list {
+            margin-bottom: 2rem;
+        }
+        .device-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+            background: var(--panel);
+            transition: background 0.15s;
+        }
+        .device-item:hover {
+            background: var(--bg);
+        }
+        .device-status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .device-status-dot.online {
+            background: var(--success);
+            box-shadow: 0 0 0 2px rgba(16,185,129,0.15);
+        }
+        .device-status-dot.offline {
+            background: var(--muted);
+        }
+        .device-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .device-name {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text);
+        }
+        .device-meta {
+            font-size: 0.75rem;
+            color: var(--muted);
+        }
+        .device-badge {
+            display: inline-block;
+            padding: 0.125rem 0.5rem;
+            background: var(--accent);
+            color: white;
+            font-size: 0.7rem;
+            font-weight: 500;
+            border-radius: 3px;
+            margin-left: 0.5rem;
+        }
+        .btn-delete {
+            padding: 0.4rem 0.75rem;
+            font-size: 0.8rem;
+            background: transparent;
+            color: #ef4444;
+            border: 1px solid #ef4444;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .btn-delete:hover {
+            background: #ef4444;
+            color: white;
+        }
+
+        /* ── State machine table ── */
+        .state-builder {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .state-builder-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+        }
+        .state-builder h3 {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+        thead tr {
+            border-bottom: 1px solid var(--border);
+            color: var(--muted);
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        th {
+            padding-bottom: 0.75rem;
+            font-weight: 500;
+        }
+        .sm-row td {
+            padding: 0.75rem 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .sm-row:last-child td {
+            border-bottom: none;
+        }
+        .sm-row select, .sm-row input {
+            background: white;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.4rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+        .sm-row input[type="number"] {
+            width: 100px;
+        }
+        .btn-remove {
+            background: white;
+            border: 1px solid var(--border);
+            color: var(--danger);
+            padding: 0.3rem 0.65rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .btn-remove:hover {
+            background: #fef2f2;
+            border-color: var(--danger);
+        }
+
+        /* ── Deploy section ── */
+        .deploy-section {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        #pushStatus {
+            font-size: 0.85rem;
+            color: var(--muted);
+            font-weight: 500;
+        }
+
+        /* ── Log ── */
+        #log {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.8125rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 1rem;
+            height: 180px;
+            overflow-y: auto;
+            color: var(--muted);
+            line-height: 1.7;
+        }
+        .log-entry {
+            margin-bottom: 0.4rem;
+        }
+        .log-success { color: var(--success); }
+        .log-error { color: var(--danger); }
+        .log-info { color: var(--primary); }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            .device-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .device-row select {
+                max-width: 100%;
+            }
+            .sm-row input[type="number"] {
+                width: 80px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Kywo</h1>
+        <p>
+            Distributed autonomous edge control system<br>
+            Target synchronization: <strong style="color: var(--text);">&lt;50µs</strong>
+        </p>
+    </div>
+
+    <div class="panel">
+        <!-- Device Selection -->
+        <p class="section-title">Device Management</p>
+        <div class="device-row">
+            <label>Target Device:</label>
+            <select id="deviceSelector">
+                <option value="">Loading devices...</option>
+            </select>
+            <button onclick="loadDevices()" class="btn-secondary">↻ Refresh</button>
+            <button onclick="setAsMaster()" class="btn-master">★ Set as Grandmaster</button>
+        </div>
+
+        <!-- Device List -->
+        <div class="device-list" id="deviceList">
+            <p style="font-size: 0.875rem; color: var(--muted); text-align: center; padding: 1rem;">Loading devices...</p>
+        </div>
+
+        <hr class="divider">
+
+        <!-- State Machine Builder -->
+        <p class="section-title">Sequence Configuration</p>
+        <div class="state-builder">
+            <div class="state-builder-header">
+                <h3>State Sequence</h3>
+                <button onclick="addStateRow()" class="btn-primary" style="padding: 0.4rem 1rem; font-size: 0.85rem;">+ Add State</button>
+            </div>
+            
+            <table id="smTable">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">#</th>
+                        <th>Digital 1</th>
+                        <th>Digital 2</th>
+                        <th>Digital 3</th>
+                        <th>PWM (0-255)</th>
+                        <th>Duration (ms)</th>
+                        <th style="text-align: right; width: 100px;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="smTbody">
+                    <!-- Rows generated by JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="deploy-section">
+            <button class="btn-accent" onclick="pushStateMachine()">→ Deploy to Device</button>
+            <span id="pushStatus"></span>
+        </div>
+
+        <hr class="divider">
+
+        <!-- Event Log -->
+        <p class="section-title">Event Log</p>
+        <div id="log">
+            <div class="log-entry log-info">[System] Server initialized and ready</div>
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = 'super-secret-admin'; // TODO: Load from env or config
+
+        // ── Logging ───────────────────────────────────────────────────
+        function log(msg, type = 'normal') {
+            const el = document.getElementById('log');
+            const div = document.createElement('div');
+            div.className = 'log-entry' + (type !== 'normal' ? ` log-${type}` : '');
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            el.prepend(div);
+            
+            // Keep only last 100 entries
+            while (el.children.length > 100) {
+                el.removeChild(el.lastChild);
+            }
+        }
+
+        // ── Device Management ─────────────────────────────────────────
+        async function loadDevices() {
+            const selector = document.getElementById('deviceSelector');
+            const deviceList = document.getElementById('deviceList');
+            selector.innerHTML = '<option value="">Loading...</option>';
+            deviceList.innerHTML = '<p style="font-size: 0.875rem; color: var(--muted); text-align: center; padding: 1rem;">Loading devices...</p>';
+            
+            try {
+                const res = await fetch('/devices', { 
+                    headers: { 'x-api-key': API_KEY } 
+                });
+                
+                if (res.ok) {
+                    const devices = await res.json();
+                    selector.innerHTML = '<option value="">-- Select Target Device --</option>';
+                    
+                    if (devices.length === 0) {
+                        selector.innerHTML += '<option value="" disabled>No devices registered</option>';
+                        deviceList.innerHTML = '<p style="font-size: 0.875rem; color: var(--muted); text-align: center; padding: 1rem;">No devices registered yet</p>';
+                        log('No devices found. Register devices to get started.', 'info');
+                    } else {
+                        // Populate dropdown selector
+                        devices.forEach(d => {
+                            const opt = document.createElement('option');
+                            opt.value = d.device_id;
+                            opt.textContent = `${d.device_id}${d.is_master ? ' ★ (Master)' : ''}${!d.is_online ? ' [OFFLINE]' : ''}`;
+                            selector.appendChild(opt);
+                        });
+                        
+                        // Populate device list
+                        deviceList.innerHTML = '';
+                        devices.forEach(d => {
+                            const item = document.createElement('div');
+                            item.className = 'device-item';
+                            
+                            const statusDot = document.createElement('div');
+                            statusDot.className = `device-status-dot ${d.is_online ? 'online' : 'offline'}`;
+                            
+                            const info = document.createElement('div');
+                            info.className = 'device-info';
+                            
+                            const nameRow = document.createElement('div');
+                            nameRow.className = 'device-name';
+                            nameRow.innerHTML = d.device_id + (d.is_master ? '<span class="device-badge">MASTER</span>' : '');
+                            
+                            const metaRow = document.createElement('div');
+                            metaRow.className = 'device-meta';
+                            const timeAgo = formatTimeAgo(d.seconds_since_seen);
+                            metaRow.textContent = `${d.is_online ? 'Online' : 'Offline'} • Last seen ${timeAgo} • FW: ${d.firmware_version || 'N/A'}`;
+                            
+                            info.appendChild(nameRow);
+                            info.appendChild(metaRow);
+                            
+                            const deleteBtn = document.createElement('button');
+                            deleteBtn.className = 'btn-delete';
+                            deleteBtn.textContent = '✕ Remove';
+                            deleteBtn.onclick = () => deleteDevice(d.device_id);
+                            
+                            item.appendChild(statusDot);
+                            item.appendChild(info);
+                            item.appendChild(deleteBtn);
+                            
+                            deviceList.appendChild(item);
+                        });
+                        
+                        log(`Loaded ${devices.length} device(s)`, 'success');
+                    }
+                } else {
+                    selector.innerHTML = '<option value="">Error loading devices</option>';
+                    deviceList.innerHTML = '<p style="font-size: 0.875rem; color: #ef4444; text-align: center; padding: 1rem;">Failed to load devices</p>';
+                    log(`Failed to load devices: HTTP ${res.status}`, 'error');
+                }
+            } catch (e) {
+                selector.innerHTML = '<option value="">Error loading devices</option>';
+                deviceList.innerHTML = '<p style="font-size: 0.875rem; color: #ef4444; text-align: center; padding: 1rem;">Network error</p>';
+                log(`Network error: ${e.message}`, 'error');
+            }
+        }
+
+        function formatTimeAgo(seconds) {
+            if (seconds < 2) return 'just now';
+            if (seconds < 60) return `${Math.floor(seconds)}s ago`;
+            if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+            if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+            return `${Math.floor(seconds / 86400)}d ago`;
+        }
+
+        async function deleteDevice(deviceId) {
+            if (!confirm(`Remove device "${deviceId}"?\nThis action cannot be undone.`)) {
+                return;
+            }
+            
+            try {
+                const res = await fetch(`/devices/${deviceId}`, {
+                    method: 'DELETE',
+                    headers: { 'x-api-key': API_KEY }
+                });
+                
+                if (res.ok) {
+                    log(`Device ${deviceId} removed`, 'success');
+                    await loadDevices(); // Refresh the list
+                } else {
+                    const data = await res.json();
+                    log(`Failed to remove device: ${data.detail || res.statusText}`, 'error');
+                }
+            } catch (e) {
+                log(`Network error while removing device: ${e.message}`, 'error');
+            }
+        }
+
+        async function setAsMaster() {
+            const deviceId = document.getElementById('deviceSelector').value;
+            
+            if (!deviceId) {
+                alert("Please select a device to become the ESP-NOW Grandmaster.");
+                return;
+            }
+            
+            log(`Setting ${deviceId} as Grandmaster...`, 'info');
+            
+            try {
+                const res = await fetch(`/devices/${deviceId}/set_master`, {
+                    method: 'POST',
+                    headers: { 'x-api-key': API_KEY }
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    log(`✓ ${deviceId} is now the Grandmaster Clock`, 'success');
+                    loadDevices(); // Refresh to show updated master status
+                } else {
+                    log(`✗ Error assigning master: ${await res.text()}`, 'error');
+                }
+            } catch (e) {
+                log(`✗ Network error: ${e.message}`, 'error');
+            }
+        }
+
+        // ── State Machine Builder ─────────────────────────────────────
+        function createRowHTML(index, d1 = true, d2 = false, d3 = false, pwm = 128, dur = 1000) {
+            const tr = document.createElement('tr');
+            tr.className = 'sm-row';
+            tr.innerHTML = `
+                <td style="color:var(--muted); font-weight: 600;">${index}</td>
+                <td>
+                    <select class="d1">
+                        <option value="true" ${d1 ? 'selected' : ''}>HIGH</option>
+                        <option value="false" ${!d1 ? 'selected' : ''}>LOW</option>
+                    </select>
+                </td>
+                <td>
+                    <select class="d2">
+                        <option value="true" ${d2 ? 'selected' : ''}>HIGH</option>
+                        <option value="false" ${!d2 ? 'selected' : ''}>LOW</option>
+                    </select>
+                </td>
+                <td>
+                    <select class="d3">
+                        <option value="true" ${d3 ? 'selected' : ''}>HIGH</option>
+                        <option value="false" ${!d3 ? 'selected' : ''}>LOW</option>
+                    </select>
+                </td>
+                <td>
+                    <input type="number" class="pwm" value="${pwm}" min="0" max="255" step="1" style="max-width: 80px;">
+                </td>
+                <td>
+                    <input type="number" class="dur" value="${dur}" min="10" step="10">
+                </td>
+                <td style="text-align: right;">
+                    <button class="btn-remove" onclick="this.closest('tr').remove(); renumberRows();">Remove</button>
+                </td>
+            `;
+            return tr;
+        }
+
+        function addStateRow() {
+            const tbody = document.getElementById('smTbody');
+            tbody.appendChild(createRowHTML(tbody.children.length + 1, false, false, false, 0, 500));
+            renumberRows();
+            log('Added new state to sequence', 'info');
+        }
+
+        function renumberRows() {
+            const rows = document.getElementById('smTbody').children;
+            for (let i = 0; i < rows.length; i++) {
+                rows[i].children[0].textContent = i + 1;
+            }
+        }
+
+        async function pushStateMachine() {
+            const deviceId = document.getElementById('deviceSelector').value;
+            const statusEl = document.getElementById('pushStatus');
+            
+            if (!deviceId) {
+                alert("Please select a target device first.");
+                return;
+            }
+
+            const rows = document.getElementById('smTbody').children;
+            const sequence = [];
+            
+            for (let tr of rows) {
+                const pwmValue = parseInt(tr.querySelector('.pwm').value, 10);
+                if (pwmValue < 0 || pwmValue > 255) {
+                    alert(`Invalid PWM value in row ${sequence.length + 1}. Must be 0-255.`);
+                    statusEl.textContent = '';
+                    return;
+                }
+                
+                sequence.push({
+                    digital_out1: tr.querySelector('.d1').value === 'true',
+                    digital_out2: tr.querySelector('.d2').value === 'true',
+                    digital_out3: tr.querySelector('.d3').value === 'true',
+                    pwm_out: pwmValue,
+                    duration_ms: parseInt(tr.querySelector('.dur').value, 10) || 1000
+                });
+            }
+
+            if (sequence.length === 0) {
+                alert("Please add at least one state to the sequence.");
+                return;
+            }
+
+            statusEl.textContent = 'Deploying...';
+            statusEl.style.color = 'var(--muted)';
+            log(`Deploying ${sequence.length}-state sequence to ${deviceId}...`, 'info');
+
+            try {
+                const res = await fetch(`/devices/${deviceId}/config`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json', 
+                        'x-api-key': API_KEY 
+                    },
+                    body: JSON.stringify({ sequence })
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    statusEl.textContent = `✓ Configuration deployed to ${deviceId}`;
+                    statusEl.style.color = 'var(--accent)';
+                    log(`✓ Successfully deployed sequence to ${deviceId}`, 'success');
+                } else {
+                    const errorText = await res.text();
+                    statusEl.textContent = `✗ Error ${res.status}`;
+                    statusEl.style.color = 'var(--danger)';
+                    log(`✗ Deployment failed: ${errorText}`, 'error');
+                }
+            } catch (e) {
+                statusEl.textContent = '✗ Network error';
+                statusEl.style.color = 'var(--danger)';
+                log(`✗ Network error: ${e.message}`, 'error');
+            }
+        }
+
+        // ── Initialize ────────────────────────────────────────────────
+        window.addEventListener('DOMContentLoaded', () => {
+            const tbody = document.getElementById('smTbody');
+            // Default sequence matching server defaults (3 digital + 1 PWM)
+            tbody.appendChild(createRowHTML(1, true, false, false, 128, 1000));
+            tbody.appendChild(createRowHTML(2, false, true, true, 255, 1000));
+            loadDevices();
+            log('Dashboard loaded. Ready to configure devices.', 'success');
+        });
+    </script>
+</body>
+</html>
