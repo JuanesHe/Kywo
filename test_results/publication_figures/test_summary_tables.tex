@@ -1,0 +1,87 @@
+% KYWO SYSTEM - EXPERIMENTAL TEST SUMMARY TABLES
+% Date: March 16, 2026
+% Copy and paste these tables into your LaTeX document
+
+% Test 0: Software Ping-Pong Description
+% This test measures round-trip latency and inter-device synchronization using
+% software timestamps. The PC broadcasts a UDP packet to both edge nodes simultaneously,
+% and each node responds with an acknowledgment. Software drift is calculated as the
+% timing difference between the two device responses, providing a software-based
+% estimate of synchronization quality.
+
+% Table: Test 0 - Software Ping-Pong Results (Architecture 1)
+\begin{table}[htbp]
+\centering
+\caption{Test 0: Software Ping-Pong Round-Trip Latency and Drift}
+\begin{tabular}{|l|c|c|c|c|c|c|}
+\hline
+\textbf{Metric} & \textbf{Mean} & \textbf{Median} & \textbf{Std Dev} & \textbf{Range} & \textbf{P95} & \textbf{P99} \\ \hline
+Device A RTT (ms) & 57.03 & 41.72 & 54.97 & 4.01--257.76 & 175.23 & 226.86 \\ \hline
+Device B RTT (ms) & 56.89 & 41.45 & 54.92 & 3.87--257.72 & 175.22 & 226.85 \\ \hline
+Software Drift (ms) & 0.50 & 0.02 & 0.96 & 0.01--6.59 & 2.53 & 3.73 \\ \hline
+\end{tabular}
+\label{tab:test0_results}
+\end{table}
+
+% Test 1: Hardware Observer - Architecture 1 Description
+% This test uses a hardware observer with microsecond-precision interrupts to measure
+% ground truth latency and synchronization. The PC triggers the observer and broadcasts
+% a UDP packet to both edge nodes. Each node responds by setting a GPIO pin HIGH, which
+% the observer captures via hardware interrupts. This eliminates software timestamp
+% inaccuracies and provides the true physical synchronization between devices.
+
+% Table: Test 1 - Complete Hardware Observer Results (Architecture 1)
+\begin{table}[htbp]
+\centering
+\caption{Test 1: Hardware Observer Latency and Synchronization (Architecture 1)}
+\begin{tabular}{|l|c|c|c|c|c|c|}
+\hline
+\textbf{Metric} & \textbf{Mean} & \textbf{Median} & \textbf{Std Dev} & \textbf{Range} & \textbf{P95} & \textbf{P99} \\ \hline
+Device A Latency (ms) & 49.42 & 25.16 & 48.68 & 2.05--210.51 & 110.18 & 188.93 \\ \hline
+Device B Latency (ms) & 49.42 & 25.16 & 48.69 & 2.06--210.50 & 110.19 & 188.95 \\ \hline
+Sync Drift ($\mu$s) & 7.88 & 5.00 & 10.34 & 1--99 & 21.00 & 32.50 \\ \hline
+\end{tabular}
+\label{tab:test1_results}
+\end{table}
+
+% Test 2: Hardware Observer - Architecture 2 Description
+% This test measures synchronization drift in autonomous operation. Two edge nodes run
+% independent state machines (grandmaster and follower) that execute sequences without
+% centralized control. The hardware observer passively monitors GPIO timing between the
+% two nodes. ESP-NOW clock synchronization occurs every 2000ms to correct for hardware
+% clock drift. This test reveals the long-term stability of distributed execution.
+
+% Table: Test 2 - Hardware Observer Results (Architecture 2)
+\begin{table}[htbp]
+\centering
+\caption{Test 2: Synchronization Drift in Autonomous Execution (Architecture 2)}
+\begin{tabular}{|l|c|c|c|c|c|c|}
+\hline
+\textbf{Metric} & \textbf{Mean} & \textbf{Median} & \textbf{Std Dev} & \textbf{Range} & \textbf{P95} & \textbf{P99} \\ \hline
+Sync Drift ($\mu$s) & 108.47 & 31.00 & 495.96 & 1--6449 & 406.10 & 1563.89 \\ \hline
+\end{tabular}
+\label{tab:test2_results}
+\end{table}
+
+% Table: Comparative Analysis
+\begin{table}[htbp]
+\centering
+\caption{Comparative Analysis: Architecture 1 vs Architecture 2 Synchronization Performance}
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Metric} & \textbf{Arch 1 (UDP)} & \textbf{Arch 2 (ESP-NOW)} & \textbf{Ratio (A2/A1)} \\ \hline
+Mean Drift ($\mu$s) & 7.88 & 108.47 & 13.8$\times$ \\ \hline
+Median Drift ($\mu$s) & 5.00 & 31.00 & 6.2$\times$ \\ \hline
+Std Dev ($\mu$s) & 10.34 & 495.96 & 48.0$\times$ \\ \hline
+Max Drift ($\mu$s) & 99 & 6449 & 65.1$\times$ \\ \hline
+P95 Drift ($\mu$s) & 21.00 & 406.10 & 19.3$\times$ \\ \hline
+P99 Drift ($\mu$s) & 32.50 & 1563.89 & 48.1$\times$ \\ \hline
+\end{tabular}
+\label{tab:comparative_analysis}
+\end{table}
+
+% Key Findings (use in document text):
+% Architecture 1 achieves 13.8$\times$ better mean synchronization
+% Architecture 1 has 48.0$\times$ more stable timing (lower std dev)
+% Architecture 1 worst-case drift: 99 $\mu$s
+% Architecture 2 worst-case drift: 6449 $\mu$s (65.1$\times$ worse)
