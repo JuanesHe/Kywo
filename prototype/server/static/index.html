@@ -530,32 +530,21 @@
 
         // ── Device Management ─────────────────────────────────────────
         async function loadDevices() {
-            const selector = document.getElementById('deviceSelector');
             const deviceList = document.getElementById('deviceList');
-            selector.innerHTML = '<option value="">Loading...</option>';
             deviceList.innerHTML = '<p style="font-size: 0.875rem; color: var(--muted); text-align: center; padding: 1rem;">Loading devices...</p>';
-            
+
             try {
-                const res = await fetch('/devices', { 
-                    headers: { 'x-api-key': API_KEY } 
+                const res = await fetch('/devices', {
+                    headers: { 'x-api-key': API_KEY }
                 });
-                
+
                 if (res.ok) {
                     const devices = await res.json();
-                    selector.innerHTML = '<option value="">-- Select Target Device --</option>';
-                    
+
                     if (devices.length === 0) {
-                        selector.innerHTML += '<option value="" disabled>No devices registered</option>';
                         deviceList.innerHTML = '<p style="font-size: 0.875rem; color: var(--muted); text-align: center; padding: 1rem;">No devices registered yet</p>';
                         log('No devices found. Register devices to get started.', 'info');
                     } else {
-                        // Populate dropdown selector
-                        devices.forEach(d => {
-                            const opt = document.createElement('option');
-                            opt.value = d.device_id;
-                            opt.textContent = `${d.device_id}${d.is_master ? ' ★ (Master)' : ''}${!d.is_online ? ' [OFFLINE]' : ''}`;
-                            selector.appendChild(opt);
-                        });
                         
                         // Populate device list
                         deviceList.innerHTML = '';
@@ -599,12 +588,10 @@
                         log(`Loaded ${devices.length} device(s)`, 'success');
                     }
                 } else {
-                    selector.innerHTML = '<option value="">Error loading devices</option>';
                     deviceList.innerHTML = '<p style="font-size: 0.875rem; color: #ef4444; text-align: center; padding: 1rem;">Failed to load devices</p>';
                     log(`Failed to load devices: HTTP ${res.status}`, 'error');
                 }
             } catch (e) {
-                selector.innerHTML = '<option value="">Error loading devices</option>';
                 deviceList.innerHTML = '<p style="font-size: 0.875rem; color: #ef4444; text-align: center; padding: 1rem;">Network error</p>';
                 log(`Network error: ${e.message}`, 'error');
             }
