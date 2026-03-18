@@ -124,9 +124,51 @@
             border-color: #fbbf24;
             color: #78350f;
         }
-        .btn-master:hover { 
-            background: #f59e0b; 
-            border-color: #f59e0b; 
+        .btn-master:hover {
+            background: #f59e0b;
+            border-color: #f59e0b;
+        }
+
+        .btn-emergency {
+            background: var(--danger);
+            border-color: #dc2626;
+            color: white;
+            font-weight: 700;
+            font-size: 0.95rem;
+            padding: 0.65rem 1.5rem;
+            letter-spacing: 0.03em;
+            box-shadow: 0 0 0 3px rgba(239,68,68,0.2);
+        }
+        .btn-emergency:hover {
+            background: #dc2626;
+            border-color: #b91c1c;
+            box-shadow: 0 0 0 5px rgba(239,68,68,0.25);
+        }
+        .btn-emergency:active {
+            background: #b91c1c;
+            transform: scale(0.97);
+        }
+
+        .emergency-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #fff1f2;
+            border: 1px solid #fecdd3;
+            border-radius: 6px;
+            padding: 1rem 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+        .emergency-bar-label {
+            font-size: 0.8125rem;
+            color: #9f1239;
+            font-weight: 500;
+        }
+        .emergency-bar-label strong {
+            display: block;
+            font-size: 0.875rem;
+            color: #be123c;
+            margin-bottom: 0.15rem;
         }
 
         /* ── Inputs ── */
@@ -146,25 +188,6 @@
 
 
 
-        /* ── Device selector row ── */
-        .device-row {
-            display: flex;
-            gap: 1rem;
-            align-items: center;
-            margin-bottom: 2rem;
-            flex-wrap: wrap;
-        }
-        .device-row label {
-            font-size: 0.8125rem;
-            color: var(--text);
-            font-weight: 500;
-        }
-        .device-row select {
-            flex: 1;
-            min-width: 200px;
-            max-width: 350px;
-        }
-
         /* ── Device list ── */
         .device-list {
             margin-bottom: 2rem;
@@ -178,10 +201,17 @@
             border-radius: 4px;
             margin-bottom: 0.5rem;
             background: var(--panel);
-            transition: background 0.15s;
+            transition: all 0.15s;
+            cursor: pointer;
         }
         .device-item:hover {
-            background: var(--bg);
+            background: #eff6ff;
+            border-color: #93c5fd;
+        }
+        .device-item.selected {
+            border-color: var(--primary);
+            background: #eff6ff;
+            box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
         }
         .device-status-dot {
             width: 10px;
@@ -304,6 +334,39 @@
             border-color: var(--danger);
         }
 
+        /* ── Toggle buttons for digital outputs ── */
+        .btn-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.4rem 0.9rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            border: 2px solid transparent;
+            min-width: 75px;
+            justify-content: center;
+        }
+        .btn-toggle.state-on {
+            background: #dcfce7;
+            border-color: #16a34a;
+            color: #15803d;
+        }
+        .btn-toggle.state-on:hover {
+            background: #bbf7d0;
+        }
+        .btn-toggle.state-off {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+            color: #64748b;
+        }
+        .btn-toggle.state-off:hover {
+            background: #e2e8f0;
+            border-color: #94a3b8;
+        }
+
         /* ── Deploy section ── */
         .deploy-section {
             display: flex;
@@ -363,18 +426,20 @@
     </div>
 
     <div class="panel">
-        <!-- Device Selection -->
-        <p class="section-title">Device Management</p>
-        <div class="device-row">
-            <label>Target Device:</label>
-            <select id="deviceSelector">
-                <option value="">Loading devices...</option>
-            </select>
-            <button onclick="loadDevices()" class="btn-secondary">↻ Refresh</button>
-            <button onclick="setAsMaster()" class="btn-master">★ Set as Grandmaster</button>
+        <!-- Emergency Stop -->
+        <div class="emergency-bar">
+            <div class="emergency-bar-label">
+                <strong>Emergency Stop</strong>
+                Sends 0 0 0 0 to all devices — resets the state machine immediately
+            </div>
+            <button class="btn-emergency" onclick="emergencyStop()">⚠ EMERGENCY STOP</button>
         </div>
 
         <!-- Device List -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+            <p class="section-title" style="margin:0;">Connected Devices</p>
+            <button onclick="loadDevices()" style="font-size:0.8rem; padding:0.3rem 0.75rem;">↻ Refresh</button>
+        </div>
         <div class="device-list" id="deviceList">
             <p style="font-size: 0.875rem; color: var(--muted); text-align: center; padding: 1rem;">Loading devices...</p>
         </div>
@@ -409,6 +474,7 @@
 
         <div class="deploy-section">
             <button class="btn-accent" onclick="pushStateMachine()">→ Deploy to Device</button>
+            <span id="deployTarget" style="font-size:0.85rem; color:var(--muted); font-weight:500;">No device selected</span>
             <span id="pushStatus"></span>
         </div>
 
@@ -423,6 +489,7 @@
 
     <script>
         const API_KEY = 'super-secret-admin'; // TODO: Load from env or config
+        let selectedDeviceId = null;
 
         // ── Logging ───────────────────────────────────────────────────
         function log(msg, type = 'normal') {
@@ -435,6 +502,29 @@
             // Keep only last 100 entries
             while (el.children.length > 100) {
                 el.removeChild(el.lastChild);
+            }
+        }
+
+        // ── Emergency Stop ────────────────────────────────────────────
+        async function emergencyStop() {
+            if (!confirm('Send EMERGENCY STOP to ALL devices?\nThis will output 0 0 0 0 and reset all state machines.')) return;
+
+            log('⚠ Emergency stop triggered — resetting all devices...', 'error');
+
+            try {
+                const res = await fetch('/emergency_stop', {
+                    method: 'POST',
+                    headers: { 'x-api-key': API_KEY }
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    log(`⚠ Emergency stop sent to ${data.devices_reset} device(s). All outputs zeroed.`, 'error');
+                } else {
+                    log(`✗ Emergency stop failed: HTTP ${res.status}`, 'error');
+                }
+            } catch (e) {
+                log(`✗ Emergency stop network error: ${e.message}`, 'error');
             }
         }
 
@@ -471,35 +561,38 @@
                         deviceList.innerHTML = '';
                         devices.forEach(d => {
                             const item = document.createElement('div');
-                            item.className = 'device-item';
-                            
+                            item.className = 'device-item' + (d.device_id === selectedDeviceId ? ' selected' : '');
+                            item.dataset.deviceId = d.device_id;
+                            item.onclick = () => loadDeviceConfig(d.device_id);
+
                             const statusDot = document.createElement('div');
                             statusDot.className = `device-status-dot ${d.is_online ? 'online' : 'offline'}`;
-                            
+
                             const info = document.createElement('div');
                             info.className = 'device-info';
-                            
+
                             const nameRow = document.createElement('div');
                             nameRow.className = 'device-name';
-                            nameRow.innerHTML = d.device_id + (d.is_master ? '<span class="device-badge">MASTER</span>' : '');
-                            
+                            nameRow.innerHTML = d.device_id + (d.is_master ? '<span class="device-badge">GRANDMASTER</span>' : '');
+
                             const metaRow = document.createElement('div');
                             metaRow.className = 'device-meta';
                             const timeAgo = formatTimeAgo(d.seconds_since_seen);
-                            metaRow.textContent = `${d.is_online ? 'Online' : 'Offline'} • Last seen ${timeAgo} • FW: ${d.firmware_version || 'N/A'}`;
-                            
+                            metaRow.textContent = `${d.is_online ? 'Online' : 'Offline'} · Last seen ${timeAgo} · FW: ${d.firmware_version || 'N/A'}`;
+
                             info.appendChild(nameRow);
                             info.appendChild(metaRow);
-                            
+
                             const deleteBtn = document.createElement('button');
                             deleteBtn.className = 'btn-delete';
-                            deleteBtn.textContent = '✕ Remove';
-                            deleteBtn.onclick = () => deleteDevice(d.device_id);
-                            
+                            deleteBtn.textContent = '✕';
+                            deleteBtn.title = 'Remove device';
+                            deleteBtn.onclick = (e) => { e.stopPropagation(); deleteDevice(d.device_id); };
+
                             item.appendChild(statusDot);
                             item.appendChild(info);
                             item.appendChild(deleteBtn);
-                            
+
                             deviceList.appendChild(item);
                         });
                         
@@ -548,68 +641,107 @@
             }
         }
 
-        async function setAsMaster() {
-            const deviceId = document.getElementById('deviceSelector').value;
-            
-            if (!deviceId) {
-                alert("Please select a device to become the ESP-NOW Grandmaster.");
-                return;
-            }
-            
-            log(`Setting ${deviceId} as Grandmaster...`, 'info');
-            
+        // ── Load device config into table ─────────────────────────────
+        async function loadDeviceConfig(deviceId) {
+            log(`Loading config for ${deviceId}...`, 'info');
+
             try {
-                const res = await fetch(`/devices/${deviceId}/set_master`, {
-                    method: 'POST',
+                const res = await fetch(`/devices/${deviceId}/config`, {
                     headers: { 'x-api-key': API_KEY }
                 });
-                
-                if (res.ok) {
-                    const data = await res.json();
-                    log(`✓ ${deviceId} is now the Grandmaster Clock`, 'success');
-                    loadDevices(); // Refresh to show updated master status
-                } else {
-                    log(`✗ Error assigning master: ${await res.text()}`, 'error');
+
+                if (!res.ok) {
+                    log(`✗ Failed to load config: HTTP ${res.status}`, 'error');
+                    return;
                 }
+
+                const config = await res.json();
+                const sequence = config.sequence;
+
+                if (!sequence || sequence.length === 0) {
+                    log(`✗ No sequence found for ${deviceId}`, 'error');
+                    return;
+                }
+
+                // Track selected device and highlight it
+                selectedDeviceId = deviceId;
+                document.querySelectorAll('.device-item').forEach(el => {
+                    el.classList.toggle('selected', el.dataset.deviceId === deviceId);
+                });
+
+                // Update deploy section label
+                const deployLabel = document.getElementById('deployTarget');
+                if (deployLabel) deployLabel.textContent = `Target: ${deviceId}`;
+
+                // Rebuild the state machine table
+                const tbody = document.getElementById('smTbody');
+                tbody.innerHTML = '';
+                sequence.forEach((state, i) => {
+                    tbody.appendChild(createRowHTML(
+                        i + 1,
+                        state.digital_out1,
+                        state.digital_out2,
+                        state.digital_out3,
+                        state.pwm_out,
+                        state.duration_ms
+                    ));
+                });
+
+                log(`✓ Loaded ${sequence.length}-state sequence from ${deviceId}`, 'success');
             } catch (e) {
-                log(`✗ Network error: ${e.message}`, 'error');
+                log(`✗ Network error loading config: ${e.message}`, 'error');
             }
         }
 
         // ── State Machine Builder ─────────────────────────────────────
+        function makeToggle(cls, isOn) {
+            const btn = document.createElement('button');
+            btn.className = `btn-toggle ${cls} ${isOn ? 'state-on' : 'state-off'}`;
+            btn.dataset.state = isOn ? 'true' : 'false';
+            btn.textContent = isOn ? '● HIGH' : '○ LOW';
+            btn.onclick = function() {
+                const on = this.dataset.state === 'true';
+                const next = !on;
+                this.dataset.state = next ? 'true' : 'false';
+                this.textContent = next ? '● HIGH' : '○ LOW';
+                this.classList.toggle('state-on', next);
+                this.classList.toggle('state-off', !next);
+            };
+            return btn;
+        }
+
         function createRowHTML(index, d1 = true, d2 = false, d3 = false, pwm = 128, dur = 1000) {
             const tr = document.createElement('tr');
             tr.className = 'sm-row';
-            tr.innerHTML = `
-                <td style="color:var(--muted); font-weight: 600;">${index}</td>
-                <td>
-                    <select class="d1">
-                        <option value="true" ${d1 ? 'selected' : ''}>HIGH</option>
-                        <option value="false" ${!d1 ? 'selected' : ''}>LOW</option>
-                    </select>
-                </td>
-                <td>
-                    <select class="d2">
-                        <option value="true" ${d2 ? 'selected' : ''}>HIGH</option>
-                        <option value="false" ${!d2 ? 'selected' : ''}>LOW</option>
-                    </select>
-                </td>
-                <td>
-                    <select class="d3">
-                        <option value="true" ${d3 ? 'selected' : ''}>HIGH</option>
-                        <option value="false" ${!d3 ? 'selected' : ''}>LOW</option>
-                    </select>
-                </td>
-                <td>
-                    <input type="number" class="pwm" value="${pwm}" min="0" max="255" step="1" style="max-width: 80px;">
-                </td>
-                <td>
-                    <input type="number" class="dur" value="${dur}" min="10" step="10">
-                </td>
-                <td style="text-align: right;">
-                    <button class="btn-remove" onclick="this.closest('tr').remove(); renumberRows();">Remove</button>
-                </td>
-            `;
+
+            const numCell = document.createElement('td');
+            numCell.style.cssText = 'color:var(--muted); font-weight: 600;';
+            numCell.textContent = index;
+
+            const d1Cell = document.createElement('td');
+            d1Cell.appendChild(makeToggle('d1', d1));
+
+            const d2Cell = document.createElement('td');
+            d2Cell.appendChild(makeToggle('d2', d2));
+
+            const d3Cell = document.createElement('td');
+            d3Cell.appendChild(makeToggle('d3', d3));
+
+            const pwmCell = document.createElement('td');
+            pwmCell.innerHTML = `<input type="number" class="pwm" value="${pwm}" min="0" max="255" step="1" style="max-width: 80px;">`;
+
+            const durCell = document.createElement('td');
+            durCell.innerHTML = `<input type="number" class="dur" value="${dur}" min="10" step="10">`;
+
+            const actionCell = document.createElement('td');
+            actionCell.style.textAlign = 'right';
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'btn-remove';
+            removeBtn.textContent = 'Remove';
+            removeBtn.onclick = function() { this.closest('tr').remove(); renumberRows(); };
+            actionCell.appendChild(removeBtn);
+
+            tr.append(numCell, d1Cell, d2Cell, d3Cell, pwmCell, durCell, actionCell);
             return tr;
         }
 
@@ -628,11 +760,11 @@
         }
 
         async function pushStateMachine() {
-            const deviceId = document.getElementById('deviceSelector').value;
+            const deviceId = selectedDeviceId;
             const statusEl = document.getElementById('pushStatus');
-            
+
             if (!deviceId) {
-                alert("Please select a target device first.");
+                alert("Please select a device from the list first.");
                 return;
             }
 
@@ -648,9 +780,9 @@
                 }
                 
                 sequence.push({
-                    digital_out1: tr.querySelector('.d1').value === 'true',
-                    digital_out2: tr.querySelector('.d2').value === 'true',
-                    digital_out3: tr.querySelector('.d3').value === 'true',
+                    digital_out1: tr.querySelector('.d1').dataset.state === 'true',
+                    digital_out2: tr.querySelector('.d2').dataset.state === 'true',
+                    digital_out3: tr.querySelector('.d3').dataset.state === 'true',
                     pwm_out: pwmValue,
                     duration_ms: parseInt(tr.querySelector('.dur').value, 10) || 1000
                 });
