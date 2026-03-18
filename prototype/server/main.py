@@ -20,7 +20,7 @@ static_dir = os.path.join(os.path.dirname(__file__), "static")
 os.makedirs(static_dir, exist_ok=True)
 app.mount("/ui", StaticFiles(directory=static_dir), name="ui")
 manager = DeviceManager()
-admin_api_key = os.getenv("ADMIN_API_KEY", "change-me")
+admin_api_key = os.getenv("ADMIN_API_KEY", "super-secret-admin")
 
 
 @app.on_event("startup")
