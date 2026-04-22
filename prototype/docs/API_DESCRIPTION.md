@@ -1,4 +1,4 @@
-# Kywo Prototype — API & System Description
+# Kywo Prototype — API & System Description KYWO
 
 ## System Overview
 
