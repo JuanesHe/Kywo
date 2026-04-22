@@ -20,7 +20,7 @@ static_dir = os.path.join(os.path.dirname(__file__), "static")
 os.makedirs(static_dir, exist_ok=True)
 app.mount("/ui", StaticFiles(directory=static_dir), name="ui")
 manager = DeviceManager()
-admin_api_key = os.getenv("ADMIN_API_KEY", "change-me")
+admin_api_key = os.getenv("ADMIN_API_KEY", "super-secret-admin")
 
 
 @app.on_event("startup")
@@ -100,22 +100,6 @@ async def get_device_config(device_id: str, x_api_key: str = Header(default=""))
     config["master_channel"] = master_channel
     return config
 
-@app.post("/devices/{device_id}/set_master")
-async def set_device_master(device_id: str, x_api_key: str = Header(default="")):
-    if x_api_key != admin_api_key:
-        raise HTTPException(status_code=401, detail="Invalid admin API key")
-    
-    if device_id not in manager._devices:
-        raise HTTPException(status_code=404, detail="Device not found")
-
-    # Clear master flag from all other devices
-    for _id, dev in manager._devices.items():
-        dev.is_master = False
-        
-    # Assign new master
-    manager._devices[device_id].is_master = True
-    return {"status": "success", "message": f"{device_id} is now the Grandmaster Clock for ESP-NOW sync"}
-
 
 class StateNode(BaseModel):
     """Fixed configuration: 3 digital outputs + 1 PWM output."""
@@ -127,6 +111,25 @@ class StateNode(BaseModel):
 
 class StateMachineRequest(BaseModel):
     sequence: list[StateNode]
+
+_EMERGENCY_STATE = {
+    "sequence": [
+        {"digital_out1": False, "digital_out2": False, "digital_out3": False, "pwm_out": 0, "duration_ms": 100}
+    ]
+}
+
+@app.post("/emergency_stop")
+async def emergency_stop(x_api_key: str = Header(default="")):
+    """Override every known device's state machine to all-zero output."""
+    if x_api_key != admin_api_key:
+        raise HTTPException(status_code=401, detail="Invalid admin API key")
+
+    devices = await manager.list_devices()
+    for device in devices:
+        _arch2_state_machines[device.device_id] = _EMERGENCY_STATE.copy()
+
+    return {"status": "emergency_stop", "devices_reset": len(devices)}
+
 
 @app.post("/devices/{device_id}/config")
 async def update_device_config(

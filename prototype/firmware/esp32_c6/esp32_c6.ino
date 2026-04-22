@@ -5,8 +5,9 @@
  * Target: <50µs mean drift between nodes
  * 
  * Hardware Configuration (Fixed):
- *   - 3 Digital Outputs (GPIO 15, 16, 17)
- *   - 1 PWM Output (GPIO 18, LEDC Channel 0)
+ *   - 3 Digital Outputs (GPIO 5, 23, 22)
+ *   - 1 PWM Output (GPIO 4, LEDC Channel 0)
+ *   - Static pins: GPIO 7 (HIGH), GPIO 21 (LOW)
  * 
  * Communication:
  *   - HTTP/TCP: Configuration polling (1000ms interval)
@@ -26,23 +27,37 @@
 // ==========================================
 // USER CONFIGURATION
 // ==========================================
-const char* WIFI_SSID     = "YOUR_WIFI_SSID";
-const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 
-// Server configuration
-const char* SERVER_URL = "http://192.168.1.100:8000";  // Update with your server IP
-const char* API_KEY    = "super-secret-admin";          // Must match server ADMIN_API_KEY
+#define HOME 0
+
+#if HOME
+const char* WIFI_SSID = "0e94fc-2.4GHz"; 
+const char* WIFI_PASSWORD = "yxnzJuan25";
+// Server config
+const char* SERVER_URL = "http://192.168.87.62:8000";
+const char* API_KEY    = "super-secret-admin";
+
+#else
+const char* WIFI_SSID     = "TP-Link_9414"; 
+const char* WIFI_PASSWORD = "TP-Link_9414";
+// Server config
+const char* SERVER_URL = "http://192.168.0.100:8000";
+const char* API_KEY    = "super-secret-admin";
+#endif
 
 // ==========================================
 // HARDWARE PIN CONFIGURATION (Fixed)
 // ==========================================
-static const int PIN_DIGITAL_OUT1 = 15;  // GPIO 15
-static const int PIN_DIGITAL_OUT2 = 16;  // GPIO 16
-static const int PIN_DIGITAL_OUT3 = 17;  // GPIO 17
-static const int PIN_PWM_OUT      = 18;  // GPIO 18
+static const int PIN_DIGITAL_OUT1 = 5;   // GPIO 5
+static const int PIN_DIGITAL_OUT2 = 23;  // GPIO 23
+static const int PIN_DIGITAL_OUT3 = 22;  // GPIO 22
+static const int PIN_PWM_OUT      = 4;   // GPIO 4
+
+// Static pins (fixed level)
+static const int PIN_STATIC_HIGH  = 7;   // GPIO 7  - always HIGH
+static const int PIN_STATIC_LOW   = 21;  // GPIO 21 - always LOW
 
 // PWM Configuration (LEDC)
-static const int PWM_CHANNEL      = 0;   // LEDC channel 0
 static const int PWM_FREQUENCY    = 5000; // 5 kHz
 static const int PWM_RESOLUTION   = 8;   // 8-bit (0-255)
 
@@ -391,7 +406,7 @@ void stateMachineEngineTask(void * pvParameters) {
       digitalWrite(PIN_DIGITAL_OUT1, d1 ? HIGH : LOW);
       digitalWrite(PIN_DIGITAL_OUT2, d2 ? HIGH : LOW);
       digitalWrite(PIN_DIGITAL_OUT3, d3 ? HIGH : LOW);
-      ledcWrite(PWM_CHANNEL, pwm);
+      ledcWrite(PIN_PWM_OUT, pwm);
       
       // Intelligent delay strategy for minimal jitter
       uint32_t waitUs = timeToNextStateUs;
@@ -413,7 +428,7 @@ void stateMachineEngineTask(void * pvParameters) {
       digitalWrite(PIN_DIGITAL_OUT1, LOW);
       digitalWrite(PIN_DIGITAL_OUT2, LOW);
       digitalWrite(PIN_DIGITAL_OUT3, LOW);
-      ledcWrite(PWM_CHANNEL, 0);
+      ledcWrite(PIN_PWM_OUT, 0);
       vTaskDelay(pdMS_TO_TICKS(10));
     }
   }
@@ -438,17 +453,24 @@ void setup() {
   digitalWrite(PIN_DIGITAL_OUT1, LOW);
   digitalWrite(PIN_DIGITAL_OUT2, LOW);
   digitalWrite(PIN_DIGITAL_OUT3, LOW);
+
+  // Configure static pins
+  pinMode(PIN_STATIC_HIGH, OUTPUT);
+  pinMode(PIN_STATIC_LOW, OUTPUT);
+  digitalWrite(PIN_STATIC_HIGH, HIGH);
+  digitalWrite(PIN_STATIC_LOW, LOW);
   
   // Configure PWM output (LEDC)
-  ledcSetup(PWM_CHANNEL, PWM_FREQUENCY, PWM_RESOLUTION);
-  ledcAttachPin(PIN_PWM_OUT, PWM_CHANNEL);
-  ledcWrite(PWM_CHANNEL, 0);
+  ledcAttach(PIN_PWM_OUT, PWM_FREQUENCY, PWM_RESOLUTION);
+  ledcWrite(PIN_PWM_OUT, 0);
   
   Serial.println("[hw] Hardware initialized:");
   Serial.printf("  Digital outputs: GPIO %d, %d, %d\n", 
                 PIN_DIGITAL_OUT1, PIN_DIGITAL_OUT2, PIN_DIGITAL_OUT3);
-  Serial.printf("  PWM output: GPIO %d (Channel %d, %d Hz)\n", 
-                PIN_PWM_OUT, PWM_CHANNEL, PWM_FREQUENCY);
+  Serial.printf("  PWM output: GPIO %d (%d Hz)\n", 
+                PIN_PWM_OUT, PWM_FREQUENCY);
+  Serial.printf("  Static HIGH: GPIO %d, Static LOW: GPIO %d\n",
+                PIN_STATIC_HIGH, PIN_STATIC_LOW);
 
   // Initialize sequence configs
   seqConfigs[0].isValid = false;
@@ -472,31 +494,29 @@ void setup() {
   // Initialize ESP-NOW (will be configured as master/follower via config poll)
   configureEspNow();
 
-  // Create ESP-NOW sync broadcast task (runs on core 0)
-  xTaskCreatePinnedToCore(
+  // Create ESP-NOW sync broadcast task
+  xTaskCreate(
     syncBroadcastTask,
     "espnow_sync",
     3072,
     NULL,
     3,
-    &syncBroadcastTaskHandle,
-    0  // Core 0
+    &syncBroadcastTaskHandle
   );
 
-  // Create state machine execution task (runs on core 1 for timing precision)
-  xTaskCreatePinnedToCore(
+  // Create state machine execution task (highest priority for timing)
+  xTaskCreate(
     stateMachineEngineTask,
     "sm_engine",
     4096,
     NULL,
-    configMAX_PRIORITIES - 1,  // Highest priority for timing
-    &engineTaskHandle,
-    1  // Core 1
+    configMAX_PRIORITIES - 1,
+    &engineTaskHandle
   );
 
   Serial.println("[boot] FreeRTOS tasks created:");
-  Serial.println("  - ESP-NOW sync task (Core 0, Priority 3)");
-  Serial.println("  - State machine engine (Core 1, Highest Priority)");
+  Serial.println("  - ESP-NOW sync task (Priority 3)");
+  Serial.println("  - State machine engine (Highest Priority)");
   Serial.println("\n[boot] System ready. Waiting for configuration...\n");
 }
 
